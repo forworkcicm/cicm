@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Scholarship Tracking Dashboard | CICM</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Google Sans -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --font-app: 'Google Sans', 'Google Sans Text', 'Product Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
+  html, body, button, input, select, textarea, table, th, td {
+    font-family: var(--font-app);
+  }
+  body { background: #fafafa; }
+
+  .glass {
+    background: rgba(255,255,255,0.75);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.6);
+    box-shadow: 0 8px 32px rgba(249,115,22,0.08);
+  }
+  .card-hover { transition: all .25s ease; }
+  .card-hover:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(249,115,22,0.18); }
+  .brand-gradient { background: linear-gradient(135deg, #f97316 0%, #fb923c 50%, #fdba74 100%); }
+  .text-brand { color: #f97316; }
+  .bg-brand { background: #f97316; }
+
+  .scroll-x { overflow-x: auto; }
+  .scroll-x::-webkit-scrollbar { height: 8px; }
+  .scroll-x::-webkit-scrollbar-thumb { background: #fdba74; border-radius: 4px; }
+  table thead th { position: sticky; top: 0; background: #fff7ed; z-index: 5; }
+
+  .loading-overlay {
+    position: fixed; inset: 0; background: rgba(255,255,255,0.92);
+    display: flex; align-items: center; justify-content: center; z-index: 9999;
+  }
+  .spinner {
+    width: 48px; height: 48px; border: 4px solid #fed7aa;
+    border-top-color: #f97316; border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
+  #errorBox, #warnBox { display: none; }
+  .error-card {
+    background: #fef2f2; border-left: 4px solid #dc2626;
+    padding: 12px 16px; border-radius: 8px; margin-bottom: 8px;
+    font-size: 13px; color: #7f1d1d;
+  }
+  .step-box {
+    background: #fff7ed; border-left: 4px solid #f97316;
+    padding: 12px 16px; border-radius: 8px; margin-bottom: 8px;
+    font-size: 13px; color: #7c2d12;
+  }
+  .warn-card {
+    background: #fffbeb; border-left: 4px solid #d97706;
+    padding: 12px 16px; border-radius: 8px;
+    font-size: 13px; color: #78350f;
+  }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- Loading -->
+<div id="loading" class="loading-overlay">
+  <div class="text-center">
+    <div class="spinner mx-auto mb-4"></div>
+    <p class="text-brand font-medium">กำลังโหลดข้อมูลจาก Google Sheets...</p>
+    <p id="loadingStatus" class="text-xs text-gray-400 mt-2"></p>
+  </div>
+</div>
+
+<!-- Header -->
+<header class="brand-gradient text-white shadow-lg">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+      <div class="w-12 h-12 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center text-2xl">🎓</div>
+      <div>
+        <h1 class="text-xl sm:text-2xl font-bold">Scholarship Tracking Dashboard</h1>
+        <p class="text-sm text-white/85">ติดตามทุนพัฒนาบุคลากร – CICM</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <p id="lastUpdated" class="text-xs text-white/85 hidden sm:block"></p>
+      <button id="btnRefresh" class="bg-white/20 hover:bg-white/30 backdrop-blur px-4 py-2 rounded-lg text-sm font-medium transition">
+        🔄 รีเฟรชข้อมูล
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- Error / Warning -->
+<section class="max-w-7xl mx-auto px-4 sm:px-6 mt-4 space-y-3">
+  <div id="errorBox" class="glass rounded-2xl p-4 border-l-4 border-red-500">
+    <h3 class="font-bold text-red-700 mb-2">⚠️ พบปัญหาการโหลดข้อมูล</h3>
+    <div id="errorList"></div>
+  </div>
+  <div id="warnBox" class="glass rounded-2xl p-4 border-l-4 border-amber-500">
+    <h3 class="font-bold text-amber-700 mb-2">🔎 ตรวจสอบโครงสร้างคอลัมน์</h3>
+    <div id="warnList"></div>
+  </div>
+</section>
+
+<!-- Filter Bar -->
+<section class="max-w-7xl mx-auto px-4 sm:px-6 mt-4">
+  <div class="glass rounded-2xl p-4 sm:p-5 flex flex-wrap items-center gap-4">
+    <div class="flex items-center gap-2">
+      <label class="text-sm font-medium text-gray-700">ปีการศึกษา:</label>
+      <select id="filterYear" class="border border-orange-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-orange-300 outline-none">
+        <option value="ทั้งหมด">ทั้งหมด</option>
+      </select>
+    </div>
+    <div class="flex items-center gap-2">
+      <label class="text-sm font-medium text-gray-700">ปีงบประมาณ:</label>
+      <select id="filterBudget" class="border border-orange-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-orange-300 outline-none">
+        <option value="ทั้งหมด">ทั้งหมด</option>
+      </select>
+    </div>
+    <div class="flex items-center gap-2">
+      <label class="text-sm font-medium text-gray-700">สถานะ:</label>
+      <select id="filterStatus" class="border border-orange-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-orange-300 outline-none">
+        <option value="ทั้งหมด">ทั้งหมด</option>
+      </select>
+    </div>
+    <div class="flex items-center gap-2 flex-1 min-w-[200px]">
+      <label class="text-sm font-medium text-gray-700">ค้นหา:</label>
+      <input id="filterSearch" type="text" placeholder="ชื่อ-สกุล / รหัส..."
+             class="flex-1 border border-orange-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-orange-300 outline-none"/>
+    </div>
+    <button id="btnReset" class="px-3 py-2 text-sm rounded-lg border border-orange-200 text-orange-700 hover:bg-orange-50 transition">
+      ล้างตัวกรอง
+    </button>
+  </div>
+</section>
+
+<!-- KPI -->
+<section class="max-w-7xl mx-auto px-4 sm:px-6 mt-6">
+  <h2 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+    <span class="w-1 h-6 bg-brand rounded"></span> ① ตัวชี้วัดหลัก
+  </h2>
+  <div id="kpiGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+    <p class="col-span-full text-center text-gray-400 py-8">กำลังโหลด...</p>
+  </div>
+</section>
+
+<!-- Charts -->
+<section class="max-w-7xl mx-auto px-4 sm:px-6 mt-8">
+  <h2 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+    <span class="w-1 h-6 bg-brand rounded"></span> ② กราฟสรุปผล
+  </h2>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+    <div class="glass rounded-2xl p-5 card-hover">
+      <h3 class="font-semibold text-gray-700 mb-3">หมวดหมู่ค่าใช้จ่าย (เฉพาะจ่ายแล้ว)</h3>
+      <div class="h-72"><canvas id="chartCategory"></canvas></div>
+    </div>
+    <div class="glass rounded-2xl p-5 card-hover">
+      <h3 class="font-semibold text-gray-700 mb-3">เพดานวงเงินตามประเภททุน</h3>
+      <div class="h-72"><canvas id="chartType"></canvas></div>
+    </div>
+    <div class="glass rounded-2xl p-5 card-hover lg:col-span-2">
+      <h3 class="font-semibold text-gray-700 mb-3">แนวโน้มการเบิกจ่ายรายปีงบประมาณ (เฉพาะจ่ายแล้ว)</h3>
+      <div class="h-72"><canvas id="chartTrend"></canvas></div>
+    </div>
+  </div>
+</section>
+
+<!-- Table: Person -->
+<section class="max-w-7xl mx-auto px-4 sm:px-6 mt-8">
+  <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
+    <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+      <span class="w-1 h-6 bg-brand rounded"></span> ③ สรุปรายบุคคล (ตามปีทุน)
+      <span id="countPerson" class="text-xs font-normal text-gray-500"></span>
+    </h2>
+    <button id="btnExportPerson" class="px-3 py-2 text-sm rounded-lg bg-brand text-white hover:bg-orange-600 transition">
+      ⬇ Export CSV
+    </button>
+  </div>
+  <div class="glass rounded-2xl p-4 sm:p-5">
+    <div class="scroll-x max-h-[520px] overflow-y-auto rounded-lg border border-orange-100">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="text-left text-gray-600">
+            <th class="px-3 py-3">รหัส</th>
+            <th class="px-3 py-3">ชื่อ-สกุล</th>
+            <th class="px-3 py-3">ปีทุนที่</th>
+            <th class="px-3 py-3">ปีการศึกษา</th>
+            <th class="px-3 py-3">ปีงบฯ</th>
+            <th class="px-3 py-3 text-right">เพดานวงเงิน</th>
+            <th class="px-3 py-3 text-right">เบิกจ่ายแล้ว</th>
+            <th class="px-3 py-3 text-right">คงเหลือ</th>
+            <th class="px-3 py-3 text-center">% ใช้ไป</th>
+          </tr>
+        </thead>
+        <tbody id="tablePerson" class="divide-y divide-orange-50">
+          <tr><td colspan="9" class="text-center py-8 text-gray-400">กำลังโหลด...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- Table: Transactions -->
+<section class="max-w-7xl mx-auto px-4 sm:px-6 mt-8 mb-12">
+  <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
+    <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+      <span class="w-1 h-6 bg-brand rounded"></span> ④ รายการเบิกจ่าย
+      <span id="countTxn" class="text-xs font-normal text-gray-500"></span>
+    </h2>
+    <button id="btnExportTxn" class="px-3 py-2 text-sm rounded-lg bg-brand text-white hover:bg-orange-600 transition">
+      ⬇ Export CSV
+    </button>
+  </div>
+  <div class="glass rounded-2xl p-4 sm:p-5">
+    <div class="scroll-x max-h-[520px] overflow-y-auto rounded-lg border border-orange-100">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="text-left text-gray-600">
+            <th class="px-3 py-3">TXN</th>
+            <th class="px-3 py-3">รหัส</th>
+            <th class="px-3 py-3">ชื่อ-สกุล</th>
+            <th class="px-3 py-3">วันที่จ่าย</th>
+            <th class="px-3 py-3">ปีงบฯ</th>
+            <th class="px-3 py-3">หมวดหมู่</th>
+            <th class="px-3 py-3">รายการ</th>
+            <th class="px-3 py-3 text-right">จำนวนเงิน</th>
+            <th class="px-3 py-3 text-center">สถานะ</th>
+          </tr>
+        </thead>
+        <tbody id="tableTxn" class="divide-y divide-orange-50">
+          <tr><td colspan="9" class="text-center py-8 text-gray-400">กำลังโหลด...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<footer class="bg-gray-900 text-gray-300 text-center py-5 text-sm">
+  <p>© 2025 Scholarship Tracking Dashboard · CICM</p>
+</footer>
+
+<script>
+/* ============================================================
+   CONFIG
+   หมายเหตุ: Sheet ID/gid ปรากฏใน client-side JS ผู้เข้าชมมองเห็นได้
+   ควรเผยแพร่เฉพาะชีตที่ไม่มีข้อมูลส่วนบุคคลที่อ่อนไหว
+============================================================ */
+const SHEET_ID = '1mmkIjXT6FFP7WRit0x-nvOM8fuOsepZu85lDPgWLGlo';
+
+const SHEETS = {
+  funds:  { label: '03_Annual Capital Limit', gid: 1208932128, key: 'funds'  },
+  master: { label: '04_Master_Data',          gid: 183535959,  key: 'master' }
+};
+
+/* Schema กลาง — หากหัวคอลัมน์ในชีตเปลี่ยน แก้ที่นี่จุดเดียว */
+const COL = {
+  studentId:     'รหัสผู้รับทุน',
+  fullName:      'ชื่อ-สกุล',
+  scholarYear:   'ปีทุนที่',
+  academicYear:  'ปีการศึกษา',
+  budgetYear:    'ปีงบประมาณที่ผูกพัน',
+  ceiling:       'วงเงินสูงสุดตามประกาศ (บาท)',
+  approved:      'วงเงินตามบันทึกขออนุมัติหลักการ (บาท)',
+  paidOnSheet:   'เบิกจ่ายแล้ว (บาท)',
+  fundType:      'ประเภททุน',
+
+  txnId:         'TXN_ID',
+  txnBudgetYear: 'ปีงบประมาณผูกพัน',
+  txnPaidYear:   'ปีงบประมาณ (จ่ายจริง)',
+  txnDate:       'วันที่จ่าย (พ.ศ.)',
+  category:      'หมวดหมู่หลัก',
+  subItem:       'รายการย่อย',
+  amountClaimed: 'จำนวนเงินขอเบิก (บาท)',
+  amount:        'จำนวนเงิน (บาท)',
+  status:        'สถานะ'
+};
+
+const STATUS_PAID = 'จ่ายแล้ว';
+
+/* คอลัมน์ที่จำเป็นต่อการคำนวณ (ใช้แจ้งเตือนเมื่อไม่พบ) */
+const REQUIRED = {
+  funds:  [COL.studentId, COL.fullName, COL.academicYear, COL.budgetYear, COL.ceiling],
+  master: [COL.status, COL.category]
+};
+
+/* ============================================================
+   STATE
+============================================================ */
+const state = {
+  funds: [], master: [],
+  charts: {}, errors: [], warnings: [],
+  filtered: { person: [], txn: [] }
+};
+
+const $ = (id) => document.getElementById(id);
+
+/* ============================================================
+   JSONP LOADER — gviz ออกแบบมาสำหรับ JSONP โดยเฉพาะ (เลี่ยง CORS)
+   เก็บทั้ง raw value (v) สำหรับคำนวณ และ formatted value (f) สำหรับแสดงผล
+============================================================ */
+let jsonpCounter = 0;
+
+function querySheetJSONP(label, gid, timeoutMs = 20000) {
+  return new Promise((resolve, reject) => {
+    const cbName = `gviz_cb_${Date.now()}_${jsonpCounter++}`;
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json;responseHandler:${cbName}&gid=${gid}&_=${Date.now()}`;
+
+    let done = false;
+    const script = document.createElement('script');
+    script.src = url;
+    script.async = true;
+
+    const cleanup = () => {
+      if (done) return;
+      done = true;
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+      clearTimeout(timer);
+    };
+
+    const timer = setTimeout(() => {
+      cleanup();
+      reject({ label, error: `Timeout: Google ไม่ตอบกลับภายใน ${timeoutMs / 1000} วินาที` });
+    }, timeoutMs);
+
+    window[cbName] = (data) => {
+      try {
+        if (!data || !data.table) throw new Error('Response ไม่มี table');
+
+        const cols = data.table.cols.map(c => cleanKey(c.label || ''));
+        const rows = data.table.rows.map(r => {
+          const obj = {};
+          (r.c || []).forEach((cell, i) => {
+            const key = cols[i];
+            if (!key) return;
+            const raw = (cell && cell.v !== null && cell.v !== undefined) ? cell.v : '';
+            obj[key] = raw;
+            obj[`${key}__display`] = (cell && cell.f != null) ? cell.f : raw;
+          });
+          return obj;
+        });
+
+        console.log(`✅ ${label}: ${rows.length} แถว × ${cols.length} คอลัมน์`);
+        console.log('   คอลัมน์:', cols.filter(Boolean).join(' | '));
+
+        cleanup();
+        resolve(rows);
+      } catch (err) {
+        cleanup();
+        reject({ label, error: err.message });
+      }
+    };
+
+    script.onerror = () => {
+      cleanup();
+      reject({ label, error: 'ไม่สามารถโหลดได้ — Google ปฏิเสธการเชื่อมต่อ (อาจยังไม่ได้แชร์สาธารณะ)' });
+    };
+
+    document.head.appendChild(script);
+  });
+}
+
+function cleanKey(key) {
+  return String(key)
+    .replace(/\s*★\s*/g, '')
+    .replace(/\s*\[สูตร\]\s*/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/* ============================================================
+   LOAD — ขนานด้วย Promise.allSettled
+============================================================ */
+async function loadAllData() {
+  $('loading').style.display = 'flex';
+  $('errorBox').style.display = 'none';
+  $('warnBox').style.display = 'none';
+  state.errors = [];
+  state.warnings = [];
+
+  $('loadingStatus').textContent = 'กำลังเชื่อมต่อ Google Sheets...';
+
+  const tasks = [SHEETS.funds, SHEETS.master];
+  const results = await Promise.allSettled(
+    tasks.map(t => querySheetJSONP(t.label, t.gid))
+  );
+
+  results.forEach((result, i) => {
+    const t = tasks[i];
+    if (result.status === 'fulfilled') {
+      state[t.key] = result.value;
+    } else {
+      state[t.key] = [];
+      state.errors.push(result.reason || { label: t.label, error: 'ไม่ทราบสาเหตุ' });
+    }
+  });
+
+  $('loadingStatus').textContent = 'กำลังประมวลผล...';
+
+  validateColumns();
+  buildFilterOptions();
+  renderAll();
+  renderMessages();
+
+  $('lastUpdated').textContent = 'อัปเดตล่าสุด: ' + new Date().toLocaleString('th-TH');
+  $('loadingStatus').textContent = '';
+  $('loading').style.display = 'none';
+}
+
+function validateColumns() {
+  Object.entries(REQUIRED).forEach(([key, cols]) => {
+    const rows = state[key];
+    if (!rows.length) return;
+    const present = Object.keys(rows[0]);
+    const missing = cols.filter(c => !present.includes(c));
+    if (missing.length) {
+      state.warnings.push({
+        sheet: key === 'funds' ? SHEETS.funds.label : SHEETS.master.label,
+        missing,
+        found: present.filter(k => !k.endsWith('__display'))
+      });
+    }
+  });
+}
+
+function renderMessages() {
+  if (state.errors.length) {
+    $('errorBox').style.display = 'block';
+    $('errorList').innerHTML = state.errors.map(e => `
+      <div class="error-card"><b>❌ ${escapeHtml(e.label)}</b><br>${escapeHtml(e.error)}</div>
+    `).join('') + `
+      <div class="step-box mt-3">
+        <b>🔧 ขั้นตอนแก้ไข:</b>
+        <ol class="list-decimal ml-5 mt-2 space-y-1">
+          <li>เปิด Google Sheets → กดปุ่ม <b>Share</b></li>
+          <li>ที่ <b>General access</b> เปลี่ยนเป็น <b>"Anyone with the link"</b></li>
+          <li>Role: <b>Viewer</b> → กด <b>Done</b></li>
+          <li>ทดสอบเปิดลิงก์ในโหมด <b>Incognito</b> — ต้องเห็นไฟล์โดยไม่ต้อง login</li>
+          <li>กลับมากด 🔄 รีเฟรชข้อมูล</li>
+        </ol>
+      </div>`;
+  }
+
+  if (state.warnings.length) {
+    $('warnBox').style.display = 'block';
+    $('warnList').innerHTML = state.warnings.map(w => `
+      <div class="warn-card mb-2">
+        <b>${escapeHtml(w.sheet)}</b> — ไม่พบคอลัมน์: ${w.missing.map(m => `<code>${escapeHtml(m)}</code>`).join(', ')}
+        <div class="mt-2 text-xs opacity-80">คอลัมน์ที่พบจริง: ${w.found.map(escapeHtml).join(' | ')}</div>
+        <div class="mt-1 text-xs opacity-80">แก้ไขได้ที่ตัวแปร <code>COL</code> ในไฟล์ index.html</div>
+      </div>`).join('');
+  }
+}
+
+/* ============================================================
+   FILTERS
+============================================================ */
+function sortYears(values) {
+  return [...values].sort((a, b) => {
+    const na = Number(String(a).replace(/\D/g, ''));
+    const nb = Number(String(b).replace(/\D/g, ''));
+    if (isNaN(na) || isNaN(nb)) return String(a).localeCompare(String(b), 'th');
+    return na - nb;
+  });
+}
+
+function buildFilterOptions() {
+  const yearSet = new Set(), budgetSet = new Set(), statusSet = new Set();
+
+  state.funds.forEach(f => {
+    addIf(yearSet, f[COL.academicYear]);
+    addIf(budgetSet, f[COL.budgetYear]);
+  });
+  state.master.forEach(m => {
+    addIf(budgetSet, m[COL.txnBudgetYear] || m[COL.txnPaidYear]);
+    addIf(statusSet, m[COL.status]);
+  });
+
+  fillSelect('filterYear', sortYears(yearSet));
+  fillSelect('filterBudget', sortYears(budgetSet));
+  fillSelect('filterStatus', [...statusSet].sort((a, b) => String(a).localeCompare(String(b), 'th')));
+}
+
+function addIf(set, v) {
+  const s = String(v ?? '').trim();
+  if (s) set.add(s);
+}
+
+function fillSelect(id, values) {
+  const el = $(id);
+  const prev = el.value;
+  el.innerHTML = '<option value="ทั้งหมด">ทั้งหมด</option>' +
+    values.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+  if ([...el.options].some(o => o.value === prev)) el.value = prev;
+}
+
+function getFilters() {
+  return {
+    year:   $('filterYear').value,
+    budget: $('filterBudget').value,
+    status: $('filterStatus').value,
+    search: $('filterSearch').value.toLowerCase().trim()
+  };
+}
+
+/* ============================================================
+   HELPERS
+============================================================ */
+function isPaid(row) {
+  return String(row[COL.status] ?? '').trim() === STATUS_PAID;
+}
+
+function getAmount(row) {
+  const a = row[COL.amountClaimed];
+  return num((a === '' || a === undefined || a === null) ? row[COL.amount] : a);
+}
+
+function txnBudgetYear(row) {
+  return String(row[COL.txnBudgetYear] || row[COL.txnPaidYear] || '').trim();
+}
+
+function filterFunds({ year, budget, search }) {
+  return state.funds.filter(f => {
+    if (year !== 'ทั้งหมด' && String(f[COL.academicYear] ?? '').trim() !== year) return false;
+    if (budget !== 'ทั้งหมด' && String(f[COL.budgetYear] ?? '').trim() !== budget) return false;
+    if (search) {
+      const text = [f[COL.studentId], f[COL.fullName]].join(' ').toLowerCase();
+      if (!text.includes(search)) return false;
+    }
+    return true;
+  });
+}
+
+function filterMaster({ budget, status, search }) {
+  return state.master.filter(m => {
+    if (budget !== 'ทั้งหมด' && txnBudgetYear(m) !== budget) return false;
+    if (status !== 'ทั้งหมด' && String(m[COL.status] ?? '').trim() !== status) return false;
+    if (search) {
+      const text = [m[COL.studentId], m[COL.fullName]].join(' ').toLowerCase();
+      if (!text.includes(search)) return false;
+    }
+    return true;
+  });
+}
+
+/* ============================================================
+   RENDER
+============================================================ */
+function renderAll() {
+  const f = getFilters();
+  state.filtered.person = filterFunds(f);
+  state.filtered.txn = filterMaster(f);
+  renderKPI(f);
+  renderCharts(f);
+  renderTables();
+}
+
+function renderKPI(f) {
+  const funds = filterFunds({ year: f.year, budget: f.budget, search: '' });
+  const master = filterMaster({ budget: f.budget, status: 'ทั้งหมด', search: '' });
+  const paidRows = master.filter(isPaid);
+
+  const totalCeiling  = sum(funds, COL.ceiling);
+  const totalApproved = sum(funds, COL.approved);
+  const totalPaid     = paidRows.reduce((t, r) => t + getAmount(r), 0);
+  const remaining     = totalCeiling - totalPaid;
+  const percent       = totalCeiling > 0 ? (totalPaid / totalCeiling) * 100 : 0;
+
+  const kpis = [
+    { label: 'วงเงินสูงสุดตามประกาศ',   value: totalCeiling,  color: 'from-orange-400 to-orange-500',   icon: '🏦', unit: 'บาท' },
+    { label: 'ขออนุมัติหลักการ',         value: totalApproved, color: 'from-amber-400 to-amber-500',     icon: '📝', unit: 'บาท' },
+    { label: 'เบิกจ่ายจริง (จ่ายแล้ว)', value: totalPaid,     color: 'from-emerald-400 to-emerald-500', icon: '💸', unit: 'บาท' },
+    { label: 'คงเหลือจากเพดาน',         value: remaining,     color: 'from-sky-400 to-sky-500',         icon: '💰', unit: 'บาท' },
+    { label: '% การใช้จ่ายเทียบเพดาน',   value: percent,       color: 'from-rose-400 to-rose-500',       icon: '📊', unit: '%', isPercent: true }
+  ];
+
+  $('kpiGrid').innerHTML = kpis.map(k => `
+    <div class="glass rounded-2xl p-4 card-hover">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-2xl">${k.icon}</span>
+        <span class="text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-700 font-medium">${k.unit}</span>
+      </div>
+      <p class="text-xs text-gray-500 mb-1">${k.label}</p>
+      <p class="text-lg sm:text-xl font-bold bg-gradient-to-r ${k.color} bg-clip-text text-transparent">
+        ${k.isPercent ? k.value.toFixed(2) + '%' : formatNumber(k.value)}
+      </p>
+    </div>`).join('');
+}
+
+function renderCharts(f) {
+  const master = filterMaster({ budget: f.budget, status: 'ทั้งหมด', search: '' }).filter(isPaid);
+  const funds  = filterFunds({ year: f.year, budget: f.budget, search: '' });
+
+  // 1) หมวดหมู่ (เฉพาะจ่ายแล้ว)
+  const catMap = {};
+  master.forEach(m => {
+    const cat = String(m[COL.category] || 'ไม่ระบุ');
+    catMap[cat] = (catMap[cat] || 0) + getAmount(m);
+  });
+  drawChart('category', 'chartCategory', {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(catMap).length ? Object.keys(catMap) : ['ไม่มีข้อมูล'],
+      datasets: [{
+        data: Object.keys(catMap).length ? Object.values(catMap) : [1],
+        backgroundColor: ['#f97316','#fb923c','#fdba74','#ea580c','#f59e0b','#fbbf24','#fcd34d','#fed7aa','#ffedd5'],
+        borderWidth: 2, borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } }
+    }
+  });
+
+  // 2) ประเภททุน
+  const typeMap = {};
+  funds.forEach(r => {
+    const t = String(r[COL.fundType] || 'ไม่ระบุ');
+    typeMap[t] = (typeMap[t] || 0) + num(r[COL.ceiling]);
+  });
+  drawChart('type', 'chartType', {
+    type: 'bar',
+    data: {
+      labels: Object.keys(typeMap).length ? Object.keys(typeMap) : ['ไม่มีข้อมูล'],
+      datasets: [{ label: 'เพดานวงเงิน (บาท)', data: Object.keys(typeMap).length ? Object.values(typeMap) : [0], backgroundColor: '#f97316', borderRadius: 8 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { callback: v => formatNumber(v) } } }
+    }
+  });
+
+  // 3) แนวโน้ม (ทุกปี, เฉพาะจ่ายแล้ว)
+  const trendMap = {};
+  state.master.filter(isPaid).forEach(m => {
+    const y = String(m[COL.txnPaidYear] || m[COL.txnBudgetYear] || 'ไม่ระบุ').trim();
+    trendMap[y] = (trendMap[y] || 0) + getAmount(m);
+  });
+  const trendLabels = sortYears(Object.keys(trendMap));
+  drawChart('trend', 'chartTrend', {
+    type: 'line',
+    data: {
+      labels: trendLabels.length ? trendLabels : ['ไม่มีข้อมูล'],
+      datasets: [{
+        label: 'เบิกจ่าย (บาท)',
+        data: trendLabels.length ? trendLabels.map(k => trendMap[k]) : [0],
+        borderColor: '#ea580c', backgroundColor: 'rgba(249,115,22,0.15)',
+        fill: true, tension: 0.35, pointRadius: 5, pointBackgroundColor: '#f97316'
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { callback: v => formatNumber(v) } } }
+    }
+  });
+}
+
+function drawChart(key, canvasId, cfg) {
+  if (state.charts[key]) state.charts[key].destroy();
+  state.charts[key] = new Chart($(canvasId), cfg);
+}
+
+function renderTables() {
+  const f = getFilters();
+  const personRows = state.filtered.person = filterFunds(f);
+  const txnRows    = state.filtered.txn    = filterMaster(f);
+
+  $('countPerson').textContent = `(${personRows.length} รายการ)`;
+  $('countTxn').textContent = `(${txnRows.length} รายการ)`;
+
+  $('tablePerson').innerHTML = personRows.length
+    ? personRows.map(r => {
+        const ceiling = num(r[COL.ceiling]);
+        const paid    = num(r[COL.paidOnSheet]);
+        const rem     = ceiling - paid;
+        const pct     = ceiling ? (paid / ceiling) * 100 : 0;
+        const pctColor = pct >= 100 ? 'text-red-600' : pct >= 90 ? 'text-amber-600' : pct > 0 ? 'text-emerald-600' : 'text-gray-400';
+        return `
+          <tr class="hover:bg-orange-50/60 transition">
+            <td class="px-3 py-2 text-gray-600">${disp(r, COL.studentId)}</td>
+            <td class="px-3 py-2 font-medium text-gray-800">${disp(r, COL.fullName)}</td>
+            <td class="px-3 py-2 text-gray-600">${disp(r, COL.scholarYear)}</td>
+            <td class="px-3 py-2 text-gray-600">${disp(r, COL.academicYear)}</td>
+            <td class="px-3 py-2 text-gray-600">${disp(r, COL.budgetYear)}</td>
+            <td class="px-3 py-2 text-right">${formatNumber(ceiling)}</td>
+            <td class="px-3 py-2 text-right font-semibold text-emerald-600">${formatNumber(paid)}</td>
+            <td class="px-3 py-2 text-right font-semibold ${rem < 0 ? 'text-red-600' : 'text-sky-600'}">${formatNumber(rem)}</td>
+            <td class="px-3 py-2 text-center font-semibold ${pctColor}">${pct.toFixed(1)}%</td>
+          </tr>`;
+      }).join('')
+    : `<tr><td colspan="9" class="text-center py-8 text-gray-400">ไม่พบข้อมูลตามเงื่อนไข</td></tr>`;
+
+  $('tableTxn').innerHTML = txnRows.length
+    ? txnRows.map(m => {
+        const status = String(m[COL.status] || '').trim();
+        const badge = status === STATUS_PAID ? 'bg-emerald-100 text-emerald-700'
+                    : status === 'อนุมัติแล้ว-รอจ่าย' ? 'bg-amber-100 text-amber-700'
+                    : status.includes('ยกเลิก') ? 'bg-red-100 text-red-700'
+                    : 'bg-gray-100 text-gray-600';
+        return `
+          <tr class="hover:bg-orange-50/60 transition">
+            <td class="px-3 py-2 text-gray-500 text-xs">${disp(m, COL.txnId)}</td>
+            <td class="px-3 py-2 text-gray-600">${disp(m, COL.studentId)}</td>
+            <td class="px-3 py-2 font-medium text-gray-800">${disp(m, COL.fullName)}</td>
+            <td class="px-3 py-2 text-gray-600">${disp(m, COL.txnDate)}</td>
+            <td class="px-3 py-2 text-gray-600">${escapeHtml(txnBudgetYear(m) || '-')}</td>
+            <td class="px-3 py-2 text-gray-600">${disp(m, COL.category)}</td>
+            <td class="px-3 py-2 text-gray-600">${disp(m, COL.subItem)}</td>
+            <td class="px-3 py-2 text-right font-semibold text-emerald-600">${formatNumber(getAmount(m))}</td>
+            <td class="px-3 py-2 text-center"><span class="badge ${badge}">${escapeHtml(status || '-')}</span></td>
+          </tr>`;
+      }).join('')
+    : `<tr><td colspan="9" class="text-center py-8 text-gray-400">ไม่พบข้อมูลตามเงื่อนไข</td></tr>`;
+}
+
+/* ============================================================
+   EXPORT CSV
+============================================================ */
+function exportCSV(filename, headers, rows) {
+  if (!rows.length) { alert('ไม่มีข้อมูลสำหรับส่งออก'); return; }
+  const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const csv = [headers.map(esc).join(',')]
+    .concat(rows.map(r => r.map(esc).join(',')))
+    .join('\r\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function exportPerson() {
+  exportCSV('สรุปรายบุคคล.csv',
+    ['รหัส','ชื่อ-สกุล','ปีทุนที่','ปีการศึกษา','ปีงบประมาณ','เพดานวงเงิน','เบิกจ่ายแล้ว','คงเหลือ','% ใช้ไป'],
+    state.filtered.person.map(r => {
+      const c = num(r[COL.ceiling]), p = num(r[COL.paidOnSheet]);
+      return [raw(r, COL.studentId), raw(r, COL.fullName), raw(r, COL.scholarYear),
+              raw(r, COL.academicYear), raw(r, COL.budgetYear), c, p, c - p,
+              (c ? (p / c) * 100 : 0).toFixed(1)];
+    }));
+}
+
+function exportTxn() {
+  exportCSV('รายการเบิกจ่าย.csv',
+    ['TXN','รหัส','ชื่อ-สกุล','วันที่จ่าย','ปีงบประมาณ','หมวดหมู่','รายการย่อย','จำนวนเงิน','สถานะ'],
+    state.filtered.txn.map(m => [
+      raw(m, COL.txnId), raw(m, COL.studentId), raw(m, COL.fullName),
+      raw(m, COL.txnDate), txnBudgetYear(m), raw(m, COL.category),
+      raw(m, COL.subItem), getAmount(m), raw(m, COL.status)
+    ]));
+}
+
+/* ============================================================
+   UTILITIES
+============================================================ */
+function raw(row, key) {
+  const d = row[`${key}__display`];
+  return (d !== undefined && d !== '') ? d : (row[key] ?? '');
+}
+
+function disp(row, key) {
+  const v = raw(row, key);
+  return escapeHtml(v === '' ? '-' : v);
+}
+
+function sum(rows, key) {
+  return rows.reduce((acc, r) => acc + num(r[key]), 0);
+}
+
+function num(v) {
+  if (typeof v === 'number') return isFinite(v) ? v : 0;
+  const n = parseFloat(String(v ?? '').replace(/,/g, '').replace(/[^\d.\-]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
+function formatNumber(n) {
+  if (n === null || n === undefined || isNaN(n)) return '0';
+  return Number(n).toLocaleString('th-TH', { maximumFractionDigits: 2 });
+}
+
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+/* ============================================================
+   BIND EVENTS — ผูกครั้งเดียว ไม่สะสม listener เวลารีเฟรช
+============================================================ */
+window.addEventListener('DOMContentLoaded', () => {
+  $('btnRefresh').onclick = loadAllData;
+  $('filterYear').onchange = renderAll;
+  $('filterBudget').onchange = renderAll;
+  $('filterStatus').onchange = renderAll;
+  $('filterSearch').oninput = debounce(renderTables, 280);
+  $('btnReset').onclick = () => {
+    $('filterYear').value = 'ทั้งหมด';
+    $('filterBudget').value = 'ทั้งหมด';
+    $('filterStatus').value = 'ทั้งหมด';
+    $('filterSearch').value = '';
+    renderAll();
+  };
+  $('btnExportPerson').onclick = exportPerson;
+  $('btnExportTxn').onclick = exportTxn;
+
+  loadAllData();
+});
+</script>
+</body>
+</html>
