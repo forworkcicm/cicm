@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Scholarship Tracking Dashboard | CICM</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
@@ -16,56 +16,134 @@
 <style>
   :root {
     --font-app: 'Google Sans', 'Google Sans Text', 'Product Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --brand: #f97316;
   }
   html, body, button, input, select, textarea, table, th, td {
     font-family: var(--font-app);
   }
-  body { background: #fafafa; }
+  body { background: #fafafa; -webkit-text-size-adjust: 100%; }
 
   .glass {
-    background: rgba(255,255,255,0.75);
+    background: rgba(255,255,255,0.78);
     backdrop-filter: blur(12px);
     border: 1px solid rgba(255,255,255,0.6);
     box-shadow: 0 8px 32px rgba(249,115,22,0.08);
   }
   .card-hover { transition: all .25s ease; }
-  .card-hover:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(249,115,22,0.18); }
+  @media (hover: hover) {
+    .card-hover:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(249,115,22,0.18); }
+  }
   .brand-gradient { background: linear-gradient(135deg, #f97316 0%, #fb923c 50%, #fdba74 100%); }
-  .text-brand { color: #f97316; }
-  .bg-brand { background: #f97316; }
+  .bg-brand { background: var(--brand); }
 
-  .scroll-x { overflow-x: auto; }
-  .scroll-x::-webkit-scrollbar { height: 8px; }
-  .scroll-x::-webkit-scrollbar-thumb { background: #fdba74; border-radius: 4px; }
-  table thead th { position: sticky; top: 0; background: #fff7ed; z-index: 5; }
+  /* ---------- Touch targets ---------- */
+  .tap { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  select.tap, input.tap { display: block; width: 100%; }
 
+  /* ---------- Table scroll area ---------- */
+  .table-wrap {
+    position: relative;
+    overflow: auto;
+    max-height: 60vh;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 12px;
+    border: 1px solid #ffedd5;
+  }
+  @media (min-width: 1024px) { .table-wrap { max-height: 520px; } }
+  .table-wrap::-webkit-scrollbar { height: 8px; width: 8px; }
+  .table-wrap::-webkit-scrollbar-thumb { background: #fdba74; border-radius: 4px; }
+
+  table.data { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+  @media (min-width: 768px) { table.data { font-size: 14px; } }
+
+  table.data th, table.data td {
+    padding: 10px 12px;
+    white-space: nowrap;
+    border-bottom: 1px solid #fff7ed;
+  }
+  table.data thead th {
+    position: sticky; top: 0;
+    background: #fff7ed;
+    z-index: 3;
+    font-weight: 600;
+    color: #57534e;
+  }
+
+  /* sticky first column + เงาบอกว่ายังเลื่อนได้ */
+  table.data .col-sticky {
+    position: sticky; left: 0;
+    background: #fff;
+    z-index: 2;
+    box-shadow: 6px 0 8px -6px rgba(0,0,0,.18);
+  }
+  table.data thead .col-sticky {
+    background: #fff7ed;
+    z-index: 4;
+  }
+  tbody tr:nth-child(even) .col-sticky { background: #fffdfa; }
+
+  /* ซ่อนคอลัมน์รองบนจอเล็ก */
+  .c-md { display: none; }
+  @media (min-width: 768px) { .c-md { display: table-cell; } }
+  .c-lg { display: none; }
+  @media (min-width: 1024px) { .c-lg { display: table-cell; } }
+
+  .scroll-hint {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: #a8a29e; margin-top: 8px;
+  }
+  @media (min-width: 1024px) { .scroll-hint { display: none; } }
+
+  /* ---------- Charts ---------- */
+  .chart-container {
+    position: relative;
+    height: 48vh;
+    min-height: 260px;
+    max-height: 360px;
+  }
+  @media (min-width: 768px) {
+    .chart-container { height: 300px; min-height: 0; max-height: none; }
+  }
+  @media (min-width: 1024px) {
+    .chart-container { height: 320px; }
+  }
+
+  /* ---------- Loading / badges ---------- */
   .loading-overlay {
-    position: fixed; inset: 0; background: rgba(255,255,255,0.92);
+    position: fixed; inset: 0; background: rgba(255,255,255,0.94);
     display: flex; align-items: center; justify-content: center; z-index: 9999;
+    padding: 24px; text-align: center;
   }
   .spinner {
     width: 48px; height: 48px; border: 4px solid #fed7aa;
-    border-top-color: #f97316; border-radius: 50%;
+    border-top-color: var(--brand); border-radius: 50%;
     animation: spin 1s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .badge { display: inline-block; padding: 2px 10px; border-radius: 9999px; font-size: 12px; font-weight: 500; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 500; }
   #errorBox, #warnBox { display: none; }
-  .error-card {
-    background: #fef2f2; border-left: 4px solid #dc2626;
-    padding: 12px 16px; border-radius: 8px; margin-bottom: 8px;
-    font-size: 13px; color: #7f1d1d;
+  .error-card { background:#fef2f2; border-left:4px solid #dc2626; padding:12px 16px; border-radius:8px; margin-bottom:8px; font-size:13px; color:#7f1d1d; }
+  .step-box  { background:#fff7ed; border-left:4px solid var(--brand); padding:12px 16px; border-radius:8px; font-size:13px; color:#7c2d12; }
+  .warn-card { background:#fffbeb; border-left:4px solid #d97706; padding:12px 16px; border-radius:8px; font-size:13px; color:#78350f; }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom));
+    transform: translateX(-50%) translateY(12px);
+    background: #1f2937; color: #fff;
+    padding: 12px 20px; border-radius: 9999px;
+    font-size: 13px; max-width: calc(100vw - 32px);
+    z-index: 10000; opacity: 0; pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+    box-shadow: 0 8px 24px rgba(0,0,0,.25);
   }
-  .step-box {
-    background: #fff7ed; border-left: 4px solid #f97316;
-    padding: 12px 16px; border-radius: 8px; margin-bottom: 8px;
-    font-size: 13px; color: #7c2d12;
-  }
-  .warn-card {
-    background: #fffbeb; border-left: 4px solid #d97706;
-    padding: 12px 16px; border-radius: 8px;
-    font-size: 13px; color: #78350f;
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ---------- Filter drawer (mobile) ---------- */
+  #filterBody { display: block; }
+  @media (max-width: 767px) {
+    #filterBody.collapsed { display: none; }
   }
 </style>
 </head>
@@ -73,27 +151,28 @@
 
 <!-- Loading -->
 <div id="loading" class="loading-overlay">
-  <div class="text-center">
+  <div>
     <div class="spinner mx-auto mb-4"></div>
-    <p class="text-brand font-medium">กำลังโหลดข้อมูลจาก Google Sheets...</p>
+    <p class="font-medium" style="color:var(--brand)">กำลังโหลดข้อมูลจาก Google Sheets...</p>
     <p id="loadingStatus" class="text-xs text-gray-400 mt-2"></p>
   </div>
 </div>
 
 <!-- Header -->
-<header class="brand-gradient text-white shadow-lg">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-    <div class="flex items-center gap-3">
-      <div class="w-12 h-12 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center text-2xl">🎓</div>
-      <div>
-        <h1 class="text-xl sm:text-2xl font-bold">Scholarship Tracking Dashboard</h1>
-        <p class="text-sm text-white/85">ติดตามทุนพัฒนาบุคลากร – CICM</p>
+<header class="brand-gradient text-white shadow-lg sticky top-0 z-30">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-5 flex items-center justify-between gap-3">
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center text-xl sm:text-2xl">🎓</div>
+      <div class="min-w-0">
+        <h1 class="text-base sm:text-2xl font-bold leading-tight truncate">Scholarship Tracking</h1>
+        <p class="text-[11px] sm:text-sm text-white/85 truncate">ติดตามทุนพัฒนาบุคลากร – CICM</p>
       </div>
     </div>
-    <div class="flex items-center gap-3">
-      <p id="lastUpdated" class="text-xs text-white/85 hidden sm:block"></p>
-      <button id="btnRefresh" class="bg-white/20 hover:bg-white/30 backdrop-blur px-4 py-2 rounded-lg text-sm font-medium transition">
-        🔄 รีเฟรชข้อมูล
+    <div class="flex items-center gap-2 shrink-0">
+      <p id="lastUpdated" class="text-xs text-white/85 hidden lg:block"></p>
+      <button id="btnRefresh" aria-label="รีเฟรชข้อมูล"
+              class="tap bg-white/20 hover:bg-white/30 active:bg-white/40 backdrop-blur px-3 sm:px-4 rounded-lg text-sm font-medium transition">
+        <span>🔄</span><span class="hidden sm:inline ml-2">รีเฟรช</span>
       </button>
     </div>
   </div>
@@ -102,157 +181,173 @@
 <!-- Error / Warning -->
 <section class="max-w-7xl mx-auto px-4 sm:px-6 mt-4 space-y-3">
   <div id="errorBox" class="glass rounded-2xl p-4 border-l-4 border-red-500">
-    <h3 class="font-bold text-red-700 mb-2">⚠️ พบปัญหาการโหลดข้อมูล</h3>
+    <h3 class="font-bold text-red-700 mb-2 text-sm">⚠️ พบปัญหาการโหลดข้อมูล</h3>
     <div id="errorList"></div>
   </div>
   <div id="warnBox" class="glass rounded-2xl p-4 border-l-4 border-amber-500">
-    <h3 class="font-bold text-amber-700 mb-2">🔎 ตรวจสอบโครงสร้างคอลัมน์</h3>
+    <h3 class="font-bold text-amber-700 mb-2 text-sm">🔎 ตรวจสอบโครงสร้างคอลัมน์</h3>
     <div id="warnList"></div>
   </div>
 </section>
 
 <!-- Filter Bar -->
 <section class="max-w-7xl mx-auto px-4 sm:px-6 mt-4">
-  <div class="glass rounded-2xl p-4 sm:p-5 flex flex-wrap items-center gap-4">
-    <div class="flex items-center gap-2">
-      <label class="text-sm font-medium text-gray-700">ปีการศึกษา:</label>
-      <select id="filterYear" class="border border-orange-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-orange-300 outline-none">
-        <option value="ทั้งหมด">ทั้งหมด</option>
-      </select>
-    </div>
-    <div class="flex items-center gap-2">
-      <label class="text-sm font-medium text-gray-700">ปีงบประมาณ:</label>
-      <select id="filterBudget" class="border border-orange-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-orange-300 outline-none">
-        <option value="ทั้งหมด">ทั้งหมด</option>
-      </select>
-    </div>
-    <div class="flex items-center gap-2">
-      <label class="text-sm font-medium text-gray-700">สถานะ:</label>
-      <select id="filterStatus" class="border border-orange-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-orange-300 outline-none">
-        <option value="ทั้งหมด">ทั้งหมด</option>
-      </select>
-    </div>
-    <div class="flex items-center gap-2 flex-1 min-w-[200px]">
-      <label class="text-sm font-medium text-gray-700">ค้นหา:</label>
-      <input id="filterSearch" type="text" placeholder="ชื่อ-สกุล / รหัส..."
-             class="flex-1 border border-orange-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-orange-300 outline-none"/>
-    </div>
-    <button id="btnReset" class="px-3 py-2 text-sm rounded-lg border border-orange-200 text-orange-700 hover:bg-orange-50 transition">
-      ล้างตัวกรอง
+  <div class="glass rounded-2xl p-3 sm:p-5">
+    <button id="btnFilterToggle"
+            class="tap md:hidden w-full justify-between px-1 text-sm font-medium text-gray-700">
+      <span>🔍 ตัวกรองข้อมูล <span id="filterCount" class="text-xs text-orange-600"></span></span>
+      <span id="filterChevron">▾</span>
     </button>
+
+    <div id="filterBody" class="collapsed md:!block mt-3 md:mt-0">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <label class="block">
+          <span class="block text-xs font-medium text-gray-600 mb-1">ปีการศึกษา</span>
+          <select id="filterYear" class="tap border border-orange-200 rounded-lg px-3 text-sm bg-white focus:ring-2 focus:ring-orange-300 outline-none">
+            <option value="ทั้งหมด">ทั้งหมด</option>
+          </select>
+        </label>
+        <label class="block">
+          <span class="block text-xs font-medium text-gray-600 mb-1">ปีงบประมาณ</span>
+          <select id="filterBudget" class="tap border border-orange-200 rounded-lg px-3 text-sm bg-white focus:ring-2 focus:ring-orange-300 outline-none">
+            <option value="ทั้งหมด">ทั้งหมด</option>
+          </select>
+        </label>
+        <label class="block">
+          <span class="block text-xs font-medium text-gray-600 mb-1">สถานะการจ่าย</span>
+          <select id="filterStatus" class="tap border border-orange-200 rounded-lg px-3 text-sm bg-white focus:ring-2 focus:ring-orange-300 outline-none">
+            <option value="ทั้งหมด">ทั้งหมด</option>
+          </select>
+        </label>
+        <label class="block">
+          <span class="block text-xs font-medium text-gray-600 mb-1">ค้นหา</span>
+          <input id="filterSearch" type="search" inputmode="search" placeholder="ชื่อ-สกุล / รหัส..."
+                 class="tap border border-orange-200 rounded-lg px-3 text-sm bg-white focus:ring-2 focus:ring-orange-300 outline-none"/>
+        </label>
+      </div>
+      <div class="mt-3 flex">
+        <button id="btnReset" class="tap w-full sm:w-auto px-5 text-sm rounded-lg border border-orange-200 text-orange-700 hover:bg-orange-50 active:bg-orange-100 transition">
+          🧹 ล้างตัวกรอง
+        </button>
+      </div>
+    </div>
   </div>
 </section>
 
 <!-- KPI -->
 <section class="max-w-7xl mx-auto px-4 sm:px-6 mt-6">
-  <h2 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-    <span class="w-1 h-6 bg-brand rounded"></span> ① ตัวชี้วัดหลัก
+  <h2 class="text-base sm:text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+    <span class="w-1 h-5 sm:h-6 bg-brand rounded"></span> ① ตัวชี้วัดหลัก
   </h2>
-  <div id="kpiGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+  <div id="kpiGrid" class="grid grid-cols-1 min-[420px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
     <p class="col-span-full text-center text-gray-400 py-8">กำลังโหลด...</p>
   </div>
 </section>
 
 <!-- Charts -->
 <section class="max-w-7xl mx-auto px-4 sm:px-6 mt-8">
-  <h2 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-    <span class="w-1 h-6 bg-brand rounded"></span> ② กราฟสรุปผล
+  <h2 class="text-base sm:text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+    <span class="w-1 h-5 sm:h-6 bg-brand rounded"></span> ② กราฟสรุปผล
   </h2>
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-    <div class="glass rounded-2xl p-5 card-hover">
-      <h3 class="font-semibold text-gray-700 mb-3">หมวดหมู่ค่าใช้จ่าย (เฉพาะจ่ายแล้ว)</h3>
-      <div class="h-72"><canvas id="chartCategory"></canvas></div>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
+    <div class="glass rounded-2xl p-4 sm:p-5 card-hover">
+      <h3 class="font-semibold text-gray-700 mb-3 text-sm sm:text-base">หมวดหมู่ค่าใช้จ่าย (เฉพาะจ่ายแล้ว)</h3>
+      <div class="chart-container"><canvas id="chartCategory"></canvas></div>
     </div>
-    <div class="glass rounded-2xl p-5 card-hover">
-      <h3 class="font-semibold text-gray-700 mb-3">เพดานวงเงินตามประเภททุน</h3>
-      <div class="h-72"><canvas id="chartType"></canvas></div>
+    <div class="glass rounded-2xl p-4 sm:p-5 card-hover">
+      <h3 class="font-semibold text-gray-700 mb-3 text-sm sm:text-base">เพดานวงเงินตามประเภททุน</h3>
+      <div class="chart-container"><canvas id="chartType"></canvas></div>
     </div>
-    <div class="glass rounded-2xl p-5 card-hover lg:col-span-2">
-      <h3 class="font-semibold text-gray-700 mb-3">แนวโน้มการเบิกจ่ายรายปีงบประมาณ (เฉพาะจ่ายแล้ว)</h3>
-      <div class="h-72"><canvas id="chartTrend"></canvas></div>
+    <div class="glass rounded-2xl p-4 sm:p-5 card-hover lg:col-span-2">
+      <h3 class="font-semibold text-gray-700 mb-3 text-sm sm:text-base">แนวโน้มการเบิกจ่ายรายปีงบประมาณ (เฉพาะจ่ายแล้ว)</h3>
+      <div class="chart-container"><canvas id="chartTrend"></canvas></div>
     </div>
   </div>
 </section>
 
 <!-- Table: Person -->
 <section class="max-w-7xl mx-auto px-4 sm:px-6 mt-8">
-  <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
-    <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
-      <span class="w-1 h-6 bg-brand rounded"></span> ③ สรุปรายบุคคล (ตามปีทุน)
+  <div class="flex items-start sm:items-center justify-between mb-3 gap-3 flex-wrap">
+    <h2 class="text-base sm:text-lg font-bold text-gray-800 flex items-center gap-2">
+      <span class="w-1 h-5 sm:h-6 bg-brand rounded"></span> ③ สรุปรายบุคคล
       <span id="countPerson" class="text-xs font-normal text-gray-500"></span>
     </h2>
-    <button id="btnExportPerson" class="px-3 py-2 text-sm rounded-lg bg-brand text-white hover:bg-orange-600 transition">
-      ⬇ Export CSV
+    <button id="btnExportPerson" class="tap px-4 text-sm rounded-lg bg-brand text-white hover:bg-orange-600 active:bg-orange-700 transition">
+      ⬇ <span class="ml-1">Export CSV</span>
     </button>
   </div>
-  <div class="glass rounded-2xl p-4 sm:p-5">
-    <div class="scroll-x max-h-[520px] overflow-y-auto rounded-lg border border-orange-100">
-      <table class="min-w-full text-sm">
+  <div class="glass rounded-2xl p-3 sm:p-5">
+    <div class="table-wrap">
+      <table class="data">
         <thead>
-          <tr class="text-left text-gray-600">
-            <th class="px-3 py-3">รหัส</th>
-            <th class="px-3 py-3">ชื่อ-สกุล</th>
-            <th class="px-3 py-3">ปีทุนที่</th>
-            <th class="px-3 py-3">ปีการศึกษา</th>
-            <th class="px-3 py-3">ปีงบฯ</th>
-            <th class="px-3 py-3 text-right">เพดานวงเงิน</th>
-            <th class="px-3 py-3 text-right">เบิกจ่ายแล้ว</th>
-            <th class="px-3 py-3 text-right">คงเหลือ</th>
-            <th class="px-3 py-3 text-center">% ใช้ไป</th>
+          <tr class="text-left">
+            <th class="col-sticky">ชื่อ-สกุล</th>
+            <th class="c-md">รหัส</th>
+            <th class="c-lg">ปีทุนที่</th>
+            <th class="c-md">ปีการศึกษา</th>
+            <th class="c-lg">ปีงบฯ</th>
+            <th class="text-right">เพดานวงเงิน</th>
+            <th class="text-right">เบิกจ่ายแล้ว</th>
+            <th class="text-right c-md">คงเหลือ</th>
+            <th class="text-center">% ใช้ไป</th>
           </tr>
         </thead>
-        <tbody id="tablePerson" class="divide-y divide-orange-50">
+        <tbody id="tablePerson">
           <tr><td colspan="9" class="text-center py-8 text-gray-400">กำลังโหลด...</td></tr>
         </tbody>
       </table>
     </div>
+    <p class="scroll-hint">↔️ เลื่อนตารางแนวนอนเพื่อดูคอลัมน์เพิ่มเติม</p>
   </div>
 </section>
 
 <!-- Table: Transactions -->
 <section class="max-w-7xl mx-auto px-4 sm:px-6 mt-8 mb-12">
-  <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
-    <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
-      <span class="w-1 h-6 bg-brand rounded"></span> ④ รายการเบิกจ่าย
+  <div class="flex items-start sm:items-center justify-between mb-3 gap-3 flex-wrap">
+    <h2 class="text-base sm:text-lg font-bold text-gray-800 flex items-center gap-2">
+      <span class="w-1 h-5 sm:h-6 bg-brand rounded"></span> ④ รายการเบิกจ่าย
       <span id="countTxn" class="text-xs font-normal text-gray-500"></span>
     </h2>
-    <button id="btnExportTxn" class="px-3 py-2 text-sm rounded-lg bg-brand text-white hover:bg-orange-600 transition">
-      ⬇ Export CSV
+    <button id="btnExportTxn" class="tap px-4 text-sm rounded-lg bg-brand text-white hover:bg-orange-600 active:bg-orange-700 transition">
+      ⬇ <span class="ml-1">Export CSV</span>
     </button>
   </div>
-  <div class="glass rounded-2xl p-4 sm:p-5">
-    <div class="scroll-x max-h-[520px] overflow-y-auto rounded-lg border border-orange-100">
-      <table class="min-w-full text-sm">
+  <div class="glass rounded-2xl p-3 sm:p-5">
+    <div class="table-wrap">
+      <table class="data">
         <thead>
-          <tr class="text-left text-gray-600">
-            <th class="px-3 py-3">TXN</th>
-            <th class="px-3 py-3">รหัส</th>
-            <th class="px-3 py-3">ชื่อ-สกุล</th>
-            <th class="px-3 py-3">วันที่จ่าย</th>
-            <th class="px-3 py-3">ปีงบฯ</th>
-            <th class="px-3 py-3">หมวดหมู่</th>
-            <th class="px-3 py-3">รายการ</th>
-            <th class="px-3 py-3 text-right">จำนวนเงิน</th>
-            <th class="px-3 py-3 text-center">สถานะ</th>
+          <tr class="text-left">
+            <th class="col-sticky">ชื่อ-สกุล</th>
+            <th class="c-lg">TXN</th>
+            <th class="c-md">รหัส</th>
+            <th class="c-md">วันที่จ่าย</th>
+            <th class="c-lg">ปีงบฯ</th>
+            <th class="c-md">หมวดหมู่</th>
+            <th class="c-lg">รายการ</th>
+            <th class="text-right">จำนวนเงิน</th>
+            <th class="text-center">สถานะ</th>
           </tr>
         </thead>
-        <tbody id="tableTxn" class="divide-y divide-orange-50">
+        <tbody id="tableTxn">
           <tr><td colspan="9" class="text-center py-8 text-gray-400">กำลังโหลด...</td></tr>
         </tbody>
       </table>
     </div>
+    <p class="scroll-hint">↔️ เลื่อนตารางแนวนอนเพื่อดูคอลัมน์เพิ่มเติม</p>
   </div>
 </section>
 
-<footer class="bg-gray-900 text-gray-300 text-center py-5 text-sm">
+<footer class="bg-gray-900 text-gray-300 text-center py-5 text-xs sm:text-sm px-4">
   <p>© 2025 Scholarship Tracking Dashboard · CICM</p>
+  <p id="lastUpdatedFoot" class="mt-1 text-gray-500 lg:hidden"></p>
 </footer>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script>
 /* ============================================================
    CONFIG
    หมายเหตุ: Sheet ID/gid ปรากฏใน client-side JS ผู้เข้าชมมองเห็นได้
-   ควรเผยแพร่เฉพาะชีตที่ไม่มีข้อมูลส่วนบุคคลที่อ่อนไหว
 ============================================================ */
 const SHEET_ID = '1mmkIjXT6FFP7WRit0x-nvOM8fuOsepZu85lDPgWLGlo';
 
@@ -286,15 +381,11 @@ const COL = {
 
 const STATUS_PAID = 'จ่ายแล้ว';
 
-/* คอลัมน์ที่จำเป็นต่อการคำนวณ (ใช้แจ้งเตือนเมื่อไม่พบ) */
 const REQUIRED = {
   funds:  [COL.studentId, COL.fullName, COL.academicYear, COL.budgetYear, COL.ceiling],
   master: [COL.status, COL.category]
 };
 
-/* ============================================================
-   STATE
-============================================================ */
 const state = {
   funds: [], master: [],
   charts: {}, errors: [], warnings: [],
@@ -302,10 +393,10 @@ const state = {
 };
 
 const $ = (id) => document.getElementById(id);
+const isMobile = () => window.innerWidth < 768;
 
 /* ============================================================
-   JSONP LOADER — gviz ออกแบบมาสำหรับ JSONP โดยเฉพาะ (เลี่ยง CORS)
-   เก็บทั้ง raw value (v) สำหรับคำนวณ และ formatted value (f) สำหรับแสดงผล
+   JSONP LOADER (gviz) — เก็บทั้ง raw (v) และ formatted (f)
 ============================================================ */
 let jsonpCounter = 0;
 
@@ -335,7 +426,6 @@ function querySheetJSONP(label, gid, timeoutMs = 20000) {
     window[cbName] = (data) => {
       try {
         if (!data || !data.table) throw new Error('Response ไม่มี table');
-
         const cols = data.table.cols.map(c => cleanKey(c.label || ''));
         const rows = data.table.rows.map(r => {
           const obj = {};
@@ -348,10 +438,8 @@ function querySheetJSONP(label, gid, timeoutMs = 20000) {
           });
           return obj;
         });
-
         console.log(`✅ ${label}: ${rows.length} แถว × ${cols.length} คอลัมน์`);
         console.log('   คอลัมน์:', cols.filter(Boolean).join(' | '));
-
         cleanup();
         resolve(rows);
       } catch (err) {
@@ -378,7 +466,7 @@ function cleanKey(key) {
 }
 
 /* ============================================================
-   LOAD — ขนานด้วย Promise.allSettled
+   LOAD
 ============================================================ */
 async function loadAllData() {
   $('loading').style.display = 'flex';
@@ -386,32 +474,26 @@ async function loadAllData() {
   $('warnBox').style.display = 'none';
   state.errors = [];
   state.warnings = [];
-
   $('loadingStatus').textContent = 'กำลังเชื่อมต่อ Google Sheets...';
 
   const tasks = [SHEETS.funds, SHEETS.master];
-  const results = await Promise.allSettled(
-    tasks.map(t => querySheetJSONP(t.label, t.gid))
-  );
+  const results = await Promise.allSettled(tasks.map(t => querySheetJSONP(t.label, t.gid)));
 
   results.forEach((result, i) => {
     const t = tasks[i];
-    if (result.status === 'fulfilled') {
-      state[t.key] = result.value;
-    } else {
-      state[t.key] = [];
-      state.errors.push(result.reason || { label: t.label, error: 'ไม่ทราบสาเหตุ' });
-    }
+    if (result.status === 'fulfilled') state[t.key] = result.value;
+    else { state[t.key] = []; state.errors.push(result.reason || { label: t.label, error: 'ไม่ทราบสาเหตุ' }); }
   });
 
   $('loadingStatus').textContent = 'กำลังประมวลผล...';
-
   validateColumns();
   buildFilterOptions();
   renderAll();
   renderMessages();
 
-  $('lastUpdated').textContent = 'อัปเดตล่าสุด: ' + new Date().toLocaleString('th-TH');
+  const stamp = 'อัปเดตล่าสุด: ' + new Date().toLocaleString('th-TH');
+  $('lastUpdated').textContent = stamp;
+  $('lastUpdatedFoot').textContent = stamp;
   $('loadingStatus').textContent = '';
   $('loading').style.display = 'none';
 }
@@ -436,8 +518,7 @@ function renderMessages() {
   if (state.errors.length) {
     $('errorBox').style.display = 'block';
     $('errorList').innerHTML = state.errors.map(e => `
-      <div class="error-card"><b>❌ ${escapeHtml(e.label)}</b><br>${escapeHtml(e.error)}</div>
-    `).join('') + `
+      <div class="error-card"><b>❌ ${escapeHtml(e.label)}</b><br>${escapeHtml(e.error)}</div>`).join('') + `
       <div class="step-box mt-3">
         <b>🔧 ขั้นตอนแก้ไข:</b>
         <ol class="list-decimal ml-5 mt-2 space-y-1">
@@ -445,17 +526,16 @@ function renderMessages() {
           <li>ที่ <b>General access</b> เปลี่ยนเป็น <b>"Anyone with the link"</b></li>
           <li>Role: <b>Viewer</b> → กด <b>Done</b></li>
           <li>ทดสอบเปิดลิงก์ในโหมด <b>Incognito</b> — ต้องเห็นไฟล์โดยไม่ต้อง login</li>
-          <li>กลับมากด 🔄 รีเฟรชข้อมูล</li>
+          <li>กลับมากด 🔄 รีเฟรช</li>
         </ol>
       </div>`;
   }
-
   if (state.warnings.length) {
     $('warnBox').style.display = 'block';
     $('warnList').innerHTML = state.warnings.map(w => `
       <div class="warn-card mb-2">
         <b>${escapeHtml(w.sheet)}</b> — ไม่พบคอลัมน์: ${w.missing.map(m => `<code>${escapeHtml(m)}</code>`).join(', ')}
-        <div class="mt-2 text-xs opacity-80">คอลัมน์ที่พบจริง: ${w.found.map(escapeHtml).join(' | ')}</div>
+        <div class="mt-2 text-xs opacity-80 break-words">คอลัมน์ที่พบจริง: ${w.found.map(escapeHtml).join(' | ')}</div>
         <div class="mt-1 text-xs opacity-80">แก้ไขได้ที่ตัวแปร <code>COL</code> ในไฟล์ index.html</div>
       </div>`).join('');
   }
@@ -475,15 +555,8 @@ function sortYears(values) {
 
 function buildFilterOptions() {
   const yearSet = new Set(), budgetSet = new Set(), statusSet = new Set();
-
-  state.funds.forEach(f => {
-    addIf(yearSet, f[COL.academicYear]);
-    addIf(budgetSet, f[COL.budgetYear]);
-  });
-  state.master.forEach(m => {
-    addIf(budgetSet, m[COL.txnBudgetYear] || m[COL.txnPaidYear]);
-    addIf(statusSet, m[COL.status]);
-  });
+  state.funds.forEach(f => { addIf(yearSet, f[COL.academicYear]); addIf(budgetSet, f[COL.budgetYear]); });
+  state.master.forEach(m => { addIf(budgetSet, m[COL.txnBudgetYear] || m[COL.txnPaidYear]); addIf(statusSet, m[COL.status]); });
 
   fillSelect('filterYear', sortYears(yearSet));
   fillSelect('filterBudget', sortYears(budgetSet));
@@ -512,30 +585,33 @@ function getFilters() {
   };
 }
 
+function updateFilterCount() {
+  const f = getFilters();
+  let n = 0;
+  if (f.year !== 'ทั้งหมด') n++;
+  if (f.budget !== 'ทั้งหมด') n++;
+  if (f.status !== 'ทั้งหมด') n++;
+  if (f.search) n++;
+  $('filterCount').textContent = n ? `(ใช้อยู่ ${n})` : '';
+}
+
 /* ============================================================
    HELPERS
 ============================================================ */
-function isPaid(row) {
-  return String(row[COL.status] ?? '').trim() === STATUS_PAID;
-}
+const isPaid = (row) => String(row[COL.status] ?? '').trim() === STATUS_PAID;
 
 function getAmount(row) {
   const a = row[COL.amountClaimed];
   return num((a === '' || a === undefined || a === null) ? row[COL.amount] : a);
 }
 
-function txnBudgetYear(row) {
-  return String(row[COL.txnBudgetYear] || row[COL.txnPaidYear] || '').trim();
-}
+const txnBudgetYear = (row) => String(row[COL.txnBudgetYear] || row[COL.txnPaidYear] || '').trim();
 
 function filterFunds({ year, budget, search }) {
   return state.funds.filter(f => {
     if (year !== 'ทั้งหมด' && String(f[COL.academicYear] ?? '').trim() !== year) return false;
     if (budget !== 'ทั้งหมด' && String(f[COL.budgetYear] ?? '').trim() !== budget) return false;
-    if (search) {
-      const text = [f[COL.studentId], f[COL.fullName]].join(' ').toLowerCase();
-      if (!text.includes(search)) return false;
-    }
+    if (search && ![f[COL.studentId], f[COL.fullName]].join(' ').toLowerCase().includes(search)) return false;
     return true;
   });
 }
@@ -544,10 +620,7 @@ function filterMaster({ budget, status, search }) {
   return state.master.filter(m => {
     if (budget !== 'ทั้งหมด' && txnBudgetYear(m) !== budget) return false;
     if (status !== 'ทั้งหมด' && String(m[COL.status] ?? '').trim() !== status) return false;
-    if (search) {
-      const text = [m[COL.studentId], m[COL.fullName]].join(' ').toLowerCase();
-      if (!text.includes(search)) return false;
-    }
+    if (search && ![m[COL.studentId], m[COL.fullName]].join(' ').toLowerCase().includes(search)) return false;
     return true;
   });
 }
@@ -557,6 +630,7 @@ function filterMaster({ budget, status, search }) {
 ============================================================ */
 function renderAll() {
   const f = getFilters();
+  updateFilterCount();
   state.filtered.person = filterFunds(f);
   state.filtered.txn = filterMaster(f);
   renderKPI(f);
@@ -576,72 +650,112 @@ function renderKPI(f) {
   const percent       = totalCeiling > 0 ? (totalPaid / totalCeiling) * 100 : 0;
 
   const kpis = [
-    { label: 'วงเงินสูงสุดตามประกาศ',   value: totalCeiling,  color: 'from-orange-400 to-orange-500',   icon: '🏦', unit: 'บาท' },
-    { label: 'ขออนุมัติหลักการ',         value: totalApproved, color: 'from-amber-400 to-amber-500',     icon: '📝', unit: 'บาท' },
+    { label: 'วงเงินสูงสุดตามประกาศ',  value: totalCeiling,  color: 'from-orange-400 to-orange-500',   icon: '🏦', unit: 'บาท' },
+    { label: 'ขออนุมัติหลักการ',        value: totalApproved, color: 'from-amber-400 to-amber-500',     icon: '📝', unit: 'บาท' },
     { label: 'เบิกจ่ายจริง (จ่ายแล้ว)', value: totalPaid,     color: 'from-emerald-400 to-emerald-500', icon: '💸', unit: 'บาท' },
-    { label: 'คงเหลือจากเพดาน',         value: remaining,     color: 'from-sky-400 to-sky-500',         icon: '💰', unit: 'บาท' },
-    { label: '% การใช้จ่ายเทียบเพดาน',   value: percent,       color: 'from-rose-400 to-rose-500',       icon: '📊', unit: '%', isPercent: true }
+    { label: 'คงเหลือจากเพดาน',        value: remaining,     color: 'from-sky-400 to-sky-500',         icon: '💰', unit: 'บาท' },
+    { label: '% ใช้จ่ายเทียบเพดาน',     value: percent,       color: 'from-rose-400 to-rose-500',       icon: '📊', unit: '%', isPercent: true }
   ];
 
   $('kpiGrid').innerHTML = kpis.map(k => `
     <div class="glass rounded-2xl p-4 card-hover">
       <div class="flex items-center justify-between mb-2">
-        <span class="text-2xl">${k.icon}</span>
-        <span class="text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-700 font-medium">${k.unit}</span>
+        <span class="text-xl sm:text-2xl">${k.icon}</span>
+        <span class="text-[10px] sm:text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-700 font-medium">${k.unit}</span>
       </div>
-      <p class="text-xs text-gray-500 mb-1">${k.label}</p>
-      <p class="text-lg sm:text-xl font-bold bg-gradient-to-r ${k.color} bg-clip-text text-transparent">
+      <p class="text-xs sm:text-sm text-gray-500 mb-1 leading-snug">${k.label}</p>
+      <p class="text-lg sm:text-xl font-bold bg-gradient-to-r ${k.color} bg-clip-text text-transparent break-words">
         ${k.isPercent ? k.value.toFixed(2) + '%' : formatNumber(k.value)}
       </p>
     </div>`).join('');
 }
 
+function shortLabel(s, max) {
+  s = String(s);
+  return s.length > max ? s.slice(0, max - 1) + '…' : s;
+}
+
 function renderCharts(f) {
+  const mobile = isMobile();
   const master = filterMaster({ budget: f.budget, status: 'ทั้งหมด', search: '' }).filter(isPaid);
   const funds  = filterFunds({ year: f.year, budget: f.budget, search: '' });
 
-  // 1) หมวดหมู่ (เฉพาะจ่ายแล้ว)
-  const catMap = {};
+  const compactTick = v => {
+    const n = Number(v);
+    if (mobile && Math.abs(n) >= 1000000) return (n / 1000000).toFixed(1) + 'ล.';
+    if (mobile && Math.abs(n) >= 1000) return (n / 1000).toFixed(0) + 'พ.';
+    return formatNumber(n);
+  };
+
+  const moneyTooltip = {
+    callbacks: { label: (c) => ` ${c.label ? c.label + ': ' : ''}${formatNumber(c.parsed.y ?? c.parsed)} บาท` }
+  };
+
+  // 1) หมวดหมู่ — บนมือถือรวมรายการเล็กเป็น "อื่นๆ" ไม่ให้ legend ล้น
+  let catMap = {};
   master.forEach(m => {
     const cat = String(m[COL.category] || 'ไม่ระบุ');
     catMap[cat] = (catMap[cat] || 0) + getAmount(m);
   });
+  if (mobile) {
+    const sorted = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+    if (sorted.length > 5) {
+      const top = sorted.slice(0, 4);
+      const other = sorted.slice(4).reduce((t, [, v]) => t + v, 0);
+      catMap = Object.fromEntries([...top, ['อื่นๆ', other]]);
+    }
+  }
+  const catKeys = Object.keys(catMap);
   drawChart('category', 'chartCategory', {
     type: 'doughnut',
     data: {
-      labels: Object.keys(catMap).length ? Object.keys(catMap) : ['ไม่มีข้อมูล'],
+      labels: catKeys.length ? catKeys.map(k => shortLabel(k, mobile ? 14 : 30)) : ['ไม่มีข้อมูล'],
       datasets: [{
-        data: Object.keys(catMap).length ? Object.values(catMap) : [1],
+        data: catKeys.length ? Object.values(catMap) : [1],
         backgroundColor: ['#f97316','#fb923c','#fdba74','#ea580c','#f59e0b','#fbbf24','#fcd34d','#fed7aa','#ffedd5'],
         borderWidth: 2, borderColor: '#fff'
       }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } }
+      cutout: mobile ? '55%' : '60%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { boxWidth: mobile ? 10 : 12, padding: mobile ? 8 : 12, font: { size: mobile ? 10 : 12 } }
+        },
+        tooltip: { callbacks: { label: (c) => ` ${c.label}: ${formatNumber(c.parsed)} บาท` } }
+      }
     }
   });
 
-  // 2) ประเภททุน
+  // 2) ประเภททุน — มือถือใช้ horizontal bar อ่านชื่อยาวได้
   const typeMap = {};
   funds.forEach(r => {
     const t = String(r[COL.fundType] || 'ไม่ระบุ');
     typeMap[t] = (typeMap[t] || 0) + num(r[COL.ceiling]);
   });
+  const typeKeys = Object.keys(typeMap);
   drawChart('type', 'chartType', {
     type: 'bar',
     data: {
-      labels: Object.keys(typeMap).length ? Object.keys(typeMap) : ['ไม่มีข้อมูล'],
-      datasets: [{ label: 'เพดานวงเงิน (บาท)', data: Object.keys(typeMap).length ? Object.values(typeMap) : [0], backgroundColor: '#f97316', borderRadius: 8 }]
+      labels: typeKeys.length ? typeKeys.map(k => shortLabel(k, mobile ? 18 : 30)) : ['ไม่มีข้อมูล'],
+      datasets: [{ label: 'เพดานวงเงิน (บาท)', data: typeKeys.length ? Object.values(typeMap) : [0], backgroundColor: '#f97316', borderRadius: 8 }]
     },
     options: {
+      indexAxis: mobile ? 'y' : 'x',
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true, ticks: { callback: v => formatNumber(v) } } }
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (c) => ` ${formatNumber(mobile ? c.parsed.x : c.parsed.y)} บาท` } }
+      },
+      scales: mobile
+        ? { x: { beginAtZero: true, ticks: { callback: compactTick, font: { size: 10 } } }, y: { ticks: { font: { size: 10 } } } }
+        : { y: { beginAtZero: true, ticks: { callback: compactTick } } }
     }
   });
 
-  // 3) แนวโน้ม (ทุกปี, เฉพาะจ่ายแล้ว)
+  // 3) แนวโน้ม
   const trendMap = {};
   state.master.filter(isPaid).forEach(m => {
     const y = String(m[COL.txnPaidYear] || m[COL.txnBudgetYear] || 'ไม่ระบุ').trim();
@@ -656,13 +770,18 @@ function renderCharts(f) {
         label: 'เบิกจ่าย (บาท)',
         data: trendLabels.length ? trendLabels.map(k => trendMap[k]) : [0],
         borderColor: '#ea580c', backgroundColor: 'rgba(249,115,22,0.15)',
-        fill: true, tension: 0.35, pointRadius: 5, pointBackgroundColor: '#f97316'
+        fill: true, tension: 0.35,
+        pointRadius: mobile ? 3 : 5, pointHoverRadius: 7, pointBackgroundColor: '#f97316'
       }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true, ticks: { callback: v => formatNumber(v) } } }
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false }, tooltip: moneyTooltip },
+      scales: {
+        x: { ticks: { font: { size: mobile ? 10 : 12 } } },
+        y: { beginAtZero: true, ticks: { callback: compactTick, font: { size: mobile ? 10 : 12 } } }
+      }
     }
   });
 }
@@ -674,11 +793,12 @@ function drawChart(key, canvasId, cfg) {
 
 function renderTables() {
   const f = getFilters();
+  updateFilterCount();
   const personRows = state.filtered.person = filterFunds(f);
   const txnRows    = state.filtered.txn    = filterMaster(f);
 
-  $('countPerson').textContent = `(${personRows.length} รายการ)`;
-  $('countTxn').textContent = `(${txnRows.length} รายการ)`;
+  $('countPerson').textContent = `(${personRows.length})`;
+  $('countTxn').textContent = `(${txnRows.length})`;
 
   $('tablePerson').innerHTML = personRows.length
     ? personRows.map(r => {
@@ -689,15 +809,15 @@ function renderTables() {
         const pctColor = pct >= 100 ? 'text-red-600' : pct >= 90 ? 'text-amber-600' : pct > 0 ? 'text-emerald-600' : 'text-gray-400';
         return `
           <tr class="hover:bg-orange-50/60 transition">
-            <td class="px-3 py-2 text-gray-600">${disp(r, COL.studentId)}</td>
-            <td class="px-3 py-2 font-medium text-gray-800">${disp(r, COL.fullName)}</td>
-            <td class="px-3 py-2 text-gray-600">${disp(r, COL.scholarYear)}</td>
-            <td class="px-3 py-2 text-gray-600">${disp(r, COL.academicYear)}</td>
-            <td class="px-3 py-2 text-gray-600">${disp(r, COL.budgetYear)}</td>
-            <td class="px-3 py-2 text-right">${formatNumber(ceiling)}</td>
-            <td class="px-3 py-2 text-right font-semibold text-emerald-600">${formatNumber(paid)}</td>
-            <td class="px-3 py-2 text-right font-semibold ${rem < 0 ? 'text-red-600' : 'text-sky-600'}">${formatNumber(rem)}</td>
-            <td class="px-3 py-2 text-center font-semibold ${pctColor}">${pct.toFixed(1)}%</td>
+            <td class="col-sticky font-medium text-gray-800">${disp(r, COL.fullName)}</td>
+            <td class="c-md text-gray-600">${disp(r, COL.studentId)}</td>
+            <td class="c-lg text-gray-600">${disp(r, COL.scholarYear)}</td>
+            <td class="c-md text-gray-600">${disp(r, COL.academicYear)}</td>
+            <td class="c-lg text-gray-600">${disp(r, COL.budgetYear)}</td>
+            <td class="text-right">${formatNumber(ceiling)}</td>
+            <td class="text-right font-semibold text-emerald-600">${formatNumber(paid)}</td>
+            <td class="text-right c-md font-semibold ${rem < 0 ? 'text-red-600' : 'text-sky-600'}">${formatNumber(rem)}</td>
+            <td class="text-center font-semibold ${pctColor}">${pct.toFixed(1)}%</td>
           </tr>`;
       }).join('')
     : `<tr><td colspan="9" class="text-center py-8 text-gray-400">ไม่พบข้อมูลตามเงื่อนไข</td></tr>`;
@@ -711,35 +831,45 @@ function renderTables() {
                     : 'bg-gray-100 text-gray-600';
         return `
           <tr class="hover:bg-orange-50/60 transition">
-            <td class="px-3 py-2 text-gray-500 text-xs">${disp(m, COL.txnId)}</td>
-            <td class="px-3 py-2 text-gray-600">${disp(m, COL.studentId)}</td>
-            <td class="px-3 py-2 font-medium text-gray-800">${disp(m, COL.fullName)}</td>
-            <td class="px-3 py-2 text-gray-600">${disp(m, COL.txnDate)}</td>
-            <td class="px-3 py-2 text-gray-600">${escapeHtml(txnBudgetYear(m) || '-')}</td>
-            <td class="px-3 py-2 text-gray-600">${disp(m, COL.category)}</td>
-            <td class="px-3 py-2 text-gray-600">${disp(m, COL.subItem)}</td>
-            <td class="px-3 py-2 text-right font-semibold text-emerald-600">${formatNumber(getAmount(m))}</td>
-            <td class="px-3 py-2 text-center"><span class="badge ${badge}">${escapeHtml(status || '-')}</span></td>
+            <td class="col-sticky font-medium text-gray-800">${disp(m, COL.fullName)}</td>
+            <td class="c-lg text-gray-500 text-xs">${disp(m, COL.txnId)}</td>
+            <td class="c-md text-gray-600">${disp(m, COL.studentId)}</td>
+            <td class="c-md text-gray-600">${disp(m, COL.txnDate)}</td>
+            <td class="c-lg text-gray-600">${escapeHtml(txnBudgetYear(m) || '-')}</td>
+            <td class="c-md text-gray-600">${disp(m, COL.category)}</td>
+            <td class="c-lg text-gray-600">${disp(m, COL.subItem)}</td>
+            <td class="text-right font-semibold text-emerald-600">${formatNumber(getAmount(m))}</td>
+            <td class="text-center"><span class="badge ${badge}">${escapeHtml(status || '-')}</span></td>
           </tr>`;
       }).join('')
     : `<tr><td colspan="9" class="text-center py-8 text-gray-400">ไม่พบข้อมูลตามเงื่อนไข</td></tr>`;
 }
 
 /* ============================================================
-   EXPORT CSV
+   TOAST + EXPORT
 ============================================================ */
+let toastTimer;
+function showToast(message) {
+  const el = $('toast');
+  el.textContent = message;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
 function exportCSV(filename, headers, rows) {
-  if (!rows.length) { alert('ไม่มีข้อมูลสำหรับส่งออก'); return; }
+  if (!rows.length) { showToast('⚠️ ไม่มีข้อมูลสำหรับส่งออก'); return; }
   const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const csv = [headers.map(esc).join(',')]
-    .concat(rows.map(r => r.map(esc).join(',')))
-    .join('\r\n');
+  const csv = [headers.map(esc).join(',')].concat(rows.map(r => r.map(esc).join(','))).join('\r\n');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = filename;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(a.href);
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  showToast(`✅ ดาวน์โหลด ${filename} แล้ว (${rows.length} แถว)`);
 }
 
 function exportPerson() {
@@ -770,41 +900,32 @@ function raw(row, key) {
   const d = row[`${key}__display`];
   return (d !== undefined && d !== '') ? d : (row[key] ?? '');
 }
-
 function disp(row, key) {
   const v = raw(row, key);
   return escapeHtml(v === '' ? '-' : v);
 }
-
-function sum(rows, key) {
-  return rows.reduce((acc, r) => acc + num(r[key]), 0);
-}
-
+function sum(rows, key) { return rows.reduce((acc, r) => acc + num(r[key]), 0); }
 function num(v) {
   if (typeof v === 'number') return isFinite(v) ? v : 0;
   const n = parseFloat(String(v ?? '').replace(/,/g, '').replace(/[^\d.\-]/g, ''));
   return isNaN(n) ? 0 : n;
 }
-
 function formatNumber(n) {
   if (n === null || n === undefined || isNaN(n)) return '0';
   return Number(n).toLocaleString('th-TH', { maximumFractionDigits: 2 });
 }
-
 function escapeHtml(s) {
   if (s === null || s === undefined) return '';
-  return String(s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
-
 function debounce(fn, ms) {
   let t;
-  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+  return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
 }
 
 /* ============================================================
-   BIND EVENTS — ผูกครั้งเดียว ไม่สะสม listener เวลารีเฟรช
+   BIND EVENTS — ผูกครั้งเดียว
 ============================================================ */
 window.addEventListener('DOMContentLoaded', () => {
   $('btnRefresh').onclick = loadAllData;
@@ -812,15 +933,34 @@ window.addEventListener('DOMContentLoaded', () => {
   $('filterBudget').onchange = renderAll;
   $('filterStatus').onchange = renderAll;
   $('filterSearch').oninput = debounce(renderTables, 280);
+
   $('btnReset').onclick = () => {
     $('filterYear').value = 'ทั้งหมด';
     $('filterBudget').value = 'ทั้งหมด';
     $('filterStatus').value = 'ทั้งหมด';
     $('filterSearch').value = '';
     renderAll();
+    showToast('ล้างตัวกรองแล้ว');
   };
+
+  $('btnFilterToggle').onclick = () => {
+    const body = $('filterBody');
+    body.classList.toggle('collapsed');
+    $('filterChevron').textContent = body.classList.contains('collapsed') ? '▾' : '▴';
+  };
+
   $('btnExportPerson').onclick = exportPerson;
   $('btnExportTxn').onclick = exportTxn;
+
+  // วาดกราฟใหม่เมื่อข้ามจุดตัด mobile/desktop หรือหมุนจอ
+  let lastMobile = isMobile();
+  window.addEventListener('resize', debounce(() => {
+    const now = isMobile();
+    if (now !== lastMobile) {
+      lastMobile = now;
+      if (Object.keys(state.charts).length) renderCharts(getFilters());
+    }
+  }, 300));
 
   loadAllData();
 });
