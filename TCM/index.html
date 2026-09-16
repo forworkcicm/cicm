@@ -189,7 +189,7 @@
    ========================================================= */
 const CFG = {
   // 1) URL Web App จาก Code.gs (ลงท้าย /exec) — แหล่งหลัก real-time
-  apiUrl:   'PASTE_APPS_SCRIPT_WEB_APP_URL_HERE',
+  apiUrl:   'https://script.google.com/macros/s/AKfycbyySjJ1H-36MoGaJvoBGjFsf-K9Cm8GdNZZJE5e3ywaoet0cv0Ss0NbhjOh4WLn3yibSA/exec',
   // 2) สำรอง: ID ของ Google Sheet (ต้องแชร์ "ทุกคนที่มีลิงก์ · ผู้อ่าน")
   sheetId:  '1_jtBt0cww5qVK1Vt1PR_t9M1Ayvspm6sPUyx4e-v5PE',
   sheetName:'03_Master_Data',
@@ -287,11 +287,11 @@ function jsonp(url, ms=15000){
 }
 async function loadData(){
   const tries=[];
-  const hasApi = https://script.google.com/macros/s/AKfycbyySjJ1H-36MoGaJvoBGjFsf-K9Cm8GdNZZJE5e3ywaoet0cv0Ss0NbhjOh4WLn3yibSA/exec && !https://script.google.com/macros/s/AKfycbyySjJ1H-36MoGaJvoBGjFsf-K9Cm8GdNZZJE5e3ywaoet0cv0Ss0NbhjOh4WLn3yibSA/exec.startsWith('PASTE');
+  const hasApi = CFG.apiUrl && !CFG.apiUrl.startsWith('PASTE');
   const hasSheet = CFG.sheetId && !CFG.sheetId.startsWith('PASTE');
   if(hasApi){
     tries.push(['Apps Script · real-time', async()=>{
-      let d; try{ d=JSON.parse(await fetchText(https://script.google.com/macros/s/AKfycbyySjJ1H-36MoGaJvoBGjFsf-K9Cm8GdNZZJE5e3ywaoet0cv0Ss0NbhjOh4WLn3yibSA/exec)); } catch(e){ d=await jsonp(https://script.google.com/macros/s/AKfycbyySjJ1H-36MoGaJvoBGjFsf-K9Cm8GdNZZJE5e3ywaoet0cv0Ss0NbhjOh4WLn3yibSA/exec); }
+      let d; try{ d=JSON.parse(await fetchText(CFG.apiUrl)); } catch(e){ d=await jsonp(CFG.apiUrl); }
       if(!d.ok) throw new Error(d.error||'API error');
       const F=d.fields; const rows=d.rows.map(a=>{const o={}; F.forEach((k,i)=>o[k]=a[i]); return makeRow(o);});
       return {rows, config:d.config||{}, updated:d.updated, hash:d.hash, live:true};
