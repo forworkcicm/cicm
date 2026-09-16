@@ -120,7 +120,7 @@ main{max-width:1400px;margin:0 auto;padding:28px clamp(16px,3vw,32px) 60px;displ
 .btn:hover{background:var(--accent-deep)} .btn:active{transform:translateY(1px)}
 .btn.ghost{background:var(--surface-2);color:var(--text);border-color:var(--border)}
 .btn.ghost:hover{background:var(--surface-solid);border-color:var(--accent)}
-@media (max-width:900px){.toolbar{grid-template-columns:1fr;position:static}.toolbar .actions .btn span{display:none}}
+@media (max-width:900px){.toolbar{grid-template-columns:1fr}.toolbar .actions .btn span{display:none}}
 @media (min-width:901px){.section-title,#report{scroll-margin-top:190px}}
 
 /* KPI */
@@ -340,14 +340,10 @@ footer{text-align:center;color:var(--text-muted);font-size:.8rem;padding:10px 16
   <h2 class="section-title no-print" id="report"><span class="bar"></span>รายงาน</h2>
   <section class="card">
     <div class="card-head no-print">
-      <div class="tabs" role="tablist">
-        <button class="tab" role="tab" aria-selected="true" data-tab="detail">รายละเอียดการรับเงิน</button>
-        <button class="tab" role="tab" aria-selected="false" data-tab="daily">สรุปรายวัน</button>
-      </div>
+      <h2>สรุปรายวัน</h2>
       <span class="muted" id="rowInfo"></span>
     </div>
-    <div role="tabpanel" id="pane-detail"><div class="tbl-wrap"><table class="rpt" id="tblDetail"></table></div></div>
-    <div role="tabpanel" id="pane-daily" hidden><div class="tbl-wrap"><table class="rpt" id="tblDaily"></table></div></div>
+    <div role="tabpanel" id="pane-daily"><div class="tbl-wrap"><table class="rpt" id="tblDaily"></table></div></div>
     <div id="errBox" class="err no-print hidden"></div>
   </section>
 </main>
@@ -406,7 +402,7 @@ const CH = [
   {key:'tuh',  no:'tuhNo',  label:'TUH APP',     color:'var(--s-tuh)', ref:'tuhRef'},
 ];
 const emptyAgg = () => Object.fromEntries([...CH.map(c=>[c.key,0]),['n',0]]);
-const state = { rows:[], config:{}, hash:'', source:'', month:'', q:'', sort:null, tab:'detail', timer:null, busy:false };
+const state = { rows:[], config:{}, hash:'', source:'', month:'', q:'', sort:null, tab:'daily', timer:null, busy:false };
 
 /* ---------- ตัวช่วย ---------- */
 const $ = s => document.querySelector(s);
@@ -617,12 +613,10 @@ function render(){
   renderHero(s);
   renderKpis(s);
   renderCharts(base);
-  renderDetail(rows);
   renderDaily(rows);
-  $('#prTitle').textContent=`รายละเอียดการรับเงิน ${state.config.clinic_name||$('#clinicName').textContent}`;
+  $('#prTitle').textContent=`สรุปรายวัน ${state.config.clinic_name||$('#clinicName').textContent}`;
   $('#prSub').textContent=`ประจำ${periodLabel()} · ${state.config.org_name||$('#orgName').textContent} · พิมพ์เมื่อ ${new Date().toLocaleString('th-TH')}`;
-  const all=monthRows().length;
-  $('#rowInfo').textContent=`${fmt0(rows.length)} รายการ${state.q?` (จากทั้งหมด ${fmt0(all)})`:''} · ${periodLabel()}`;
+  $('#rowInfo').textContent=`${fmt0(dailyGroups(rows).length)} วัน · ${periodLabel()}`;
 }
 function renderHero(s){
   $('#heroTotal').innerHTML=
@@ -796,47 +790,6 @@ function renderCharts(rows){
 }
 let rz; addEventListener('resize',()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(state.month) renderCharts(lastChartRows); fitHero(); },150); });
 
-/* ---------- ตารางรายละเอียด ---------- */
-const DETAIL_COLS = [
-  {k:'seq',  t:'ลำดับ', c:'c'},
-  {k:'row',  t:'ลำดับในฐานข้อมูล', c:'c', sort:true},
-  {k:'date', t:'วันที่', c:'c', sort:true, f:r=>beDate(r.date)},
-  {k:'hn',   t:'HN', c:'c mono', sort:true},
-  {k:'name', t:'ชื่อ-สกุลคนไข้/ผู้จ่าย', sort:true},
-  ...CH.flatMap(ch=>[
-    {k:ch.no,  t:'เลขที่ใบเสร็จ', c:'c mono', grp:ch},
-    {k:ch.key, t:'จำนวนเงิน', c:'r num', grp:ch, sort:true, f:r=>r[ch.key]?fmt(r[ch.key]):''},
-    ...(ch.ref?[{k:ch.ref, t:'เลขที่อ้างอิง', c:'c mono', grp:ch}]:[]),
-  ]),
-  {k:'total',t:'ผลรวม', c:'r num', sort:true, f:r=>fmt(r.total)},
-  {k:'ym',   t:'ประจำเดือน', c:'c', f:r=>ymCode(r.ym)},
-  {k:'note', t:'หมายเหตุ', f:r=>`<span class="${/เสีย|ยกเลิก/.test(r.note||'')?'note-bad':''}">${esc(r.note)}</span>`},
-  {k:'hosp', t:'ส่วนของ HOSP', c:'r num', f:r=>fmt(r.total*shareH())},
-  {k:'coll', t:'ส่วนของ วิทยาลัย', c:'r num', f:r=>fmt(r.total-r.total*shareH())},
-];
-function renderDetail(rows){
-  const s=summarize(rows); const hs=esc(hospShort());
-  const sumCell = col => {
-    const ch=col.grp;
-    if(ch) return col.k===ch.no ? `${fmt0(s[ch.key+'N'])} ใบ` : col.k===ch.key ? fmt(s[ch.key]) : '';
-    return {total:fmt(s.total), hosp:fmt(s.hosp), coll:fmt(s.coll)}[col.k] ?? '';
-  };
-  const arrow = k => state.sort?.k===k ? (state.sort.dir>0?' ▲':' ▼') : '';
-  let h='<thead><tr class="sum">'+DETAIL_COLS.map(c=>`<th style="text-align:${c.c?.includes('r')?'right':'center'}">${sumCell(c)}</th>`).join('')+'</tr><tr class="grp">';
-  for(let i=0;i<DETAIL_COLS.length;i++){
-    const c=DETAIL_COLS[i];
-    if(c.grp){ const span=c.grp.ref?3:2; h+=`<th colspan="${span}"><span style="display:inline-flex;align-items:center;gap:6px"><i class="sw no-print" style="background:${c.grp.color}"></i>${c.grp.label}</span></th>`; i+=span-1; }
-    else h+='<th></th>';
-  }
-  h+='</tr><tr class="hd">'+DETAIL_COLS.map(c=>`<th class="${c.sort?'sortable':''}" data-k="${c.k}">${c.t.replace('HOSP',hs)}${arrow(c.k)}</th>`).join('')+'</tr></thead><tbody>';
-  if(!rows.length) h+=`<tr><td colspan="${DETAIL_COLS.length}" class="c muted" style="padding:2rem">ไม่มีรายการ</td></tr>`;
-  rows.forEach((r,i)=>{
-    h+='<tr>'+DETAIL_COLS.map(c=>`<td class="${c.c||''}">${c.k==='seq' ? i+1 : c.f ? c.f(r) : esc(r[c.k])}</td>`).join('')+'</tr>';
-  });
-  h+='</tbody><tfoot><tr>'+DETAIL_COLS.map((c,i)=> i===0?'<td>รวม</td>':`<td class="${c.c||''}">${c.k==='name'?fmt0(s.visits)+' ราย':sumCell(c)}</td>`).join('')+'</tr></tfoot>';
-  $('#tblDetail').innerHTML=h;
-}
-
 /* ---------- ตารางสรุปรายวัน ---------- */
 function dailyGroups(rows){
   const map=new Map();
@@ -864,19 +817,13 @@ function renderDaily(rows){
    ========================================================= */
 function exportAoa(){
   const rows=sortedRows(filtered(monthRows())); const s=summarize(rows); const hs=hospShort();
-  const title=`รายละเอียดการรับเงิน ${state.config.clinic_name||$('#clinicName').textContent} ประจำ${periodLabel()}`;
-  const head=['ลำดับ','ลำดับในฐานข้อมูล','วันที่','HN','ชื่อ-สกุลคนไข้/ผู้จ่าย',
-    ...CH.flatMap(c=>[`เลขที่ใบเสร็จ(${c.label})`,`จำนวนเงิน(${c.label})`,...(c.ref?[`เลขที่อ้างอิง(${c.label})`]:[])]),'ผลรวม','ประจำเดือน','หมายเหตุ',`ส่วนของ ${hs}`,'ส่วนของ วิทยาลัย'];
-  const sumRow=['','','','','จำนวนใบเสร็จ / รวมเงิน',...CH.flatMap(c=>[s[c.key+'N'],s[c.key],...(c.ref?['']:[])]),s.total,'','',+s.hosp.toFixed(2),+s.coll.toFixed(2)];
-  const body=rows.map((r,i)=>[i+1,r.row,beDate(r.date),r.hn||'',r.name||'',...CH.flatMap(c=>[r[c.no]||'',r[c.key]||'',...(c.ref?[r[c.ref]||'']:[])]),
-    r.total,ymCode(r.ym),r.note||'',+(r.total*shareH()).toFixed(2),+(r.total-r.total*shareH()).toFixed(2)]);
-  const detail=[[title],[],sumRow,head,...body];
+  const title=`สรุปรายวัน ${state.config.clinic_name||$('#clinicName').textContent} ประจำ${periodLabel()}`;
   const g=dailyGroups(rows);
-  const daily=[[`สรุปรายวัน ${title.replace('รายละเอียดการรับเงิน ','')}`],[],
-    ['ลำดับ','วันที่','ผู้รับบริการ (ราย)',...CH.flatMap(c=>[`ใบเสร็จ(${c.label})`,`จำนวนเงิน(${c.label})`]),'รวมจำนวนเงิน',`ส่วนของ ${hs}`,'ส่วนของ วิทยาลัย'],
-    ...g.map((x,i)=>[i+1,beDate(x.date),x.s.visits,...CH.flatMap(c=>[x.s[c.key+'N'],x.s[c.key]]),x.s.total,+x.s.hosp.toFixed(2),+x.s.coll.toFixed(2)]),
-    ['รวม','',s.visits,...CH.flatMap(c=>[s[c.key+'N'],s[c.key]]),s.total,+s.hosp.toFixed(2),+s.coll.toFixed(2)]];
-  return {detail,daily,head,body};
+  const head=['ลำดับ','วันที่','ผู้รับบริการ (ราย)',...CH.flatMap(c=>[`ใบเสร็จ(${c.label})`,`จำนวนเงิน(${c.label})`]),'รวมจำนวนเงิน',`ส่วนของ ${hs}`,'ส่วนของ วิทยาลัย'];
+  const body=g.map((x,i)=>[i+1,beDate(x.date),x.s.visits,...CH.flatMap(c=>[x.s[c.key+'N'],x.s[c.key]]),x.s.total,+x.s.hosp.toFixed(2),+x.s.coll.toFixed(2)]);
+  const sumRow=['รวม','',s.visits,...CH.flatMap(c=>[s[c.key+'N'],s[c.key]]),s.total,+s.hosp.toFixed(2),+s.coll.toFixed(2)];
+  const daily=[[title],[],head,...body,sumRow];
+  return {daily,head,body:[...body,sumRow]};
 }
 function fileStem(){ const m=state.month; return 'รายงานรับเงินแผนจีน_'+(m.startsWith('FY')?'ปีงบ'+m.slice(2):`${+m.slice(0,4)+543}-${m.slice(5)}`); }
 function download(blob,name){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
@@ -929,9 +876,8 @@ function buildXlsx(sheets){
 }
 function exportXlsx(){
   if(!state.month) return;
-  const {detail,daily}=exportAoa();
+  const {daily}=exportAoa();
   download(buildXlsx([
-    {name:'รายละเอียด',aoa:detail,bold:[0,2,3]},
     {name:'สรุปรายวัน',aoa:daily,bold:[0,2,daily.length-1]},
   ]), fileStem()+'.xlsx');
   toast('ดาวน์โหลด Excel แล้ว');
@@ -987,16 +933,6 @@ $('#btnRefresh').addEventListener('click',doRefresh);
 $('#btnPrint').addEventListener('click',()=>print());
 $('#btnXlsx').addEventListener('click',exportXlsx);
 $('#btnCsv').addEventListener('click',exportCsv);
-$('#tblDetail').addEventListener('click',e=>{
-  const th=e.target.closest('th.sortable'); if(!th) return; const k=th.dataset.k;
-  state.sort = state.sort?.k===k ? (state.sort.dir>0?{k,dir:-1}:null) : {k,dir:1};
-  renderDetail(sortedRows(filtered(monthRows())));
-});
-document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{
-  state.tab=b.dataset.tab;
-  document.querySelectorAll('[data-tab]').forEach(x=>x.setAttribute('aria-selected',x===b));
-  $('#pane-detail').hidden=state.tab!=='detail'; $('#pane-daily').hidden=state.tab!=='daily';
-}));
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) refresh(); });
 
 refresh();
