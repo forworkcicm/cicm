@@ -287,11 +287,11 @@ function jsonp(url, ms=15000){
 }
 async function loadData(){
   const tries=[];
-  const hasApi = CFG.apiUrl && !CFG.apiUrl.startsWith('PASTE');
+  const hasApi = https://script.google.com/macros/s/AKfycbzczxwMcFpSZ1mFEvsrAwyKWAowFW0dA53IZf1IoGrlvRVZRHAfwjdKcapxHIFZdmwttw/exec && !https://script.google.com/macros/s/AKfycbzczxwMcFpSZ1mFEvsrAwyKWAowFW0dA53IZf1IoGrlvRVZRHAfwjdKcapxHIFZdmwttw/exec.startsWith('PASTE');
   const hasSheet = CFG.sheetId && !CFG.sheetId.startsWith('PASTE');
   if(hasApi){
     tries.push(['Apps Script · real-time', async()=>{
-      let d; try{ d=JSON.parse(await fetchText(CFG.apiUrl)); } catch(e){ d=await jsonp(CFG.apiUrl); }
+      let d; try{ d=JSON.parse(await fetchText(https://script.google.com/macros/s/AKfycbzczxwMcFpSZ1mFEvsrAwyKWAowFW0dA53IZf1IoGrlvRVZRHAfwjdKcapxHIFZdmwttw/exec)); } catch(e){ d=await jsonp(https://script.google.com/macros/s/AKfycbzczxwMcFpSZ1mFEvsrAwyKWAowFW0dA53IZf1IoGrlvRVZRHAfwjdKcapxHIFZdmwttw/exec); }
       if(!d.ok) throw new Error(d.error||'API error');
       const F=d.fields; const rows=d.rows.map(a=>{const o={}; F.forEach((k,i)=>o[k]=a[i]); return makeRow(o);});
       return {rows, config:d.config||{}, updated:d.updated, hash:d.hash, live:true};
