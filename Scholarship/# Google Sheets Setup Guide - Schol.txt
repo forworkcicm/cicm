@@ -1,0 +1,319 @@
+# Google Sheets Setup Guide - Scholarship Tracking System
+
+## Your Google Sheet Link
+**[เปิดไปที่ Google Sheet ของคุณ](https://docs.google.com/spreadsheets/d/1TaG8kx-zeHTgPFeUbDlCk54XJW49X87OSFgr_ZH-v70/edit)**
+
+---
+
+## Step 1: Create Sheet Tabs
+
+The Google Sheet has been created empty. You need to create 6 sheets by renaming/adding tabs:
+
+1. **01_Config** - Reference data for all dropdowns
+2. **02_Register** - Scholarship recipient list  
+3. **03_Annual_Capital_Limit** - Budget allocation plans
+4. **04_Master_Data** - Transaction records with formulas
+5. **04_Input** - Data entry form for new expenses
+6. **05_Dashboard** - Summary metrics
+
+Right-click on the "Sheet1" tab at the bottom to rename it to "01_Config". Then add new sheets for each of the others.
+
+---
+
+## Step 2: Populate Each Sheet
+
+### Sheet 1: 01_Config
+
+This sheet contains all reference data for dropdowns and system parameters.
+
+**Headers (Row 1):**
+```
+หมวดหมู่หลัก | รายการย่อย | สังกัดหมวดหมู่หลัก | สถานะการเบิกจ่าย | ประเภททุน | สกุลเงิน | วิธีการจ่าย | แหล่งข้อมูล | สถานะทุน | ปีงบประมาณ | พารามิเตอร์ระบบ | ค่า
+```
+
+**Data:** Copy all data from the file `Scholarship - 01_Config.csv` from your GitHub repository. The file contains:
+- 9 expense main categories (หมวดหมู่หลัก)
+- 42 sub-items (รายการย่อย) with proper categorization
+- 7 payment status options (สถานะการเบิกจ่าย): ร่าง, รอตรวจสอบเอกสาร, รออนุมัติ, อนุมัติแล้ว-รอจ่าย, จ่ายแล้ว, ยกเลิก, คืนเงิน
+- 5 scholarship types (ประเภททุน)
+- 8 currencies (สกุลเงิน)
+- 4 payment methods (วิธีการจ่าย)
+- 7 scholarship statuses (สถานะทุน)
+
+**Important Parameters (near bottom of sheet):**
+- U2 = 8 (Month threshold for academic year calculation - if date month < 8, it belongs to previous academic year)
+
+---
+
+### Sheet 2: 02_Register
+
+**Headers (Row 1):**
+```
+รหัสผู้รับทุน | คำนำหน้า-ชื่อ-สกุล | ประเภททุน | สถาบัน/หน่วยงานปลายทาง | ประเทศ | วันที่เริ่มต้นทุน | วันที่สิ้นสุดทุน | ปีการศึกษาที่เริ่มรับทุน | จำนวนปีทุน | วงเงินอนุมัติต่อปี (บาท) | วงเงินอนุมัติรวม (บาท) | เบิกจ่ายแล้วรวม (บาท) | คงเหลือรวม (บาท) | สถานะทุน | เลขที่หนังสืออนุมัติ | หมายเหตุ
+```
+
+**Data:** Copy all 15 scholarship recipients from `Scholarship - 02_Register.csv`. All recipients from SCH-001 through SCH-015.
+
+---
+
+### Sheet 3: 03_Annual_Capital_Limit
+
+**Headers (Row 1):**
+```
+ปีงบประมาณ | รหัสผู้รับทุน | จำนวนปีทุน | วงเงินต่อปี (บาท) | วงเงินรวม (บาท) | เบิกจ่ายแล้ว (บาท) | คงเหลือ (บาท)
+```
+
+**Data:** Copy all budget allocation records from `Scholarship - 03_Annual Capital Limit.csv`.
+
+---
+
+### Sheet 4: 04_Master_Data (with Auto-Formulas)
+
+**Headers (Row 1):**
+```
+TXN_ID | รหัสผู้รับทุน | ลำดับที่ | วันที่เบิกจ่าย | รายการ | จำนวน | สกุลเงิน | วิธีการจ่าย | สถานะ | หมายเหตุ | ปีทุนที่ | ปีงบประมาณ | หมวดหมู่หลัก | หมายหมู่ย่อย | ประเภททุน | สถานสถาบัน
+```
+
+**Formulas (Starting from Row 2):**
+
+These formulas auto-populate based on the reference data and should be copied down for all transaction rows.
+
+**Column A (TXN_ID):** 
+```
+=IF(A1="TXN_ID",A1,IF(COUNTA($A$2:A1)=0,1,MAX($A$2:A1)+1))
+```
+
+**Column K (ปีทุนที่ - Scholarship Year):**
+Calculates which scholarship period this transaction falls into based on start/end dates from 02_Register.
+
+**Column L (ปีงบประมาณ - Fiscal Year):**
+Fiscal year runs Oct 1 - Sep 30. If month is Oct-Dec, year is +1.
+
+**Column M (หมวดหมู่หลัก - Main Category):**
+```
+=IFERROR(VLOOKUP(E2,01_Config!$B$2:$A$43,2,FALSE),"")
+```
+
+**Column O (ประเภททุน - Scholarship Type):**
+```
+=IFERROR(VLOOKUP(B2,02_Register!$A:$C,3,FALSE),"")
+```
+
+**Copy all sample transactions from** `Scholarship - 04_Master_Data.csv`.
+
+---
+
+### Sheet 5: 04_Input (Data Entry Form)
+
+**Headers (Row 1):**
+```
+รหัสผู้รับทุน★ | ลำดับที่★ | วันที่เบิกจ่าย★ | รายการ★ | จำนวน★ | สกุลเงิน | วิธีการจ่าย | สถานะ★ | หมายเหตุ
+```
+
+(★ = Required fields)
+
+**Format:**
+- Column A: Data Validation dropdown pointing to 02_Register (Scholar Code list)
+- Column B: Number (sequence number)
+- Column C: Date (format DD/MM/YYYY)
+- Column D: Data Validation dropdown pointing to 01_Config (Item list)
+- Column E: Currency amount (format #,##0.00)
+- Column F: Data Validation dropdown (currencies)
+- Column G: Data Validation dropdown (payment methods)
+- Column H: Data Validation dropdown (statuses)
+- Column I: Text
+
+Create 100 empty data entry rows (rows 2-101) with borders and formatting.
+
+---
+
+### Sheet 6: 05_Dashboard
+
+**Structure:**
+- Summary section showing total budget and year overview
+- Breakdown by recipient showing balance status
+- Filters for fiscal year selection
+
+**Sample content from** `Scholarship - 05_Dashboard.csv`.
+
+---
+
+## Step 3: Add Google Apps Script Automation
+
+This script automatically validates input and inserts properly-formatted transactions into 04_Master_Data.
+
+1. Go to **Extensions > Apps Script** in the Google Sheet
+2. Delete the default code and paste this script:
+
+```javascript
+function validateAndInsertExpense() {
+  const sheet = SpreadsheetApp.getActive();
+  const inputSheet = sheet.getSheetByName('04_Input');
+  const masterSheet = sheet.getSheetByName('04_Master_Data');
+  const configSheet = sheet.getSheetByName('01_Config');
+  const registerSheet = sheet.getSheetByName('02_Register');
+  
+  // Get input data from row 2 (adjust if using different row)
+  const inputRange = inputSheet.getRange('A2:I2');
+  const inputValues = inputRange.getValues()[0];
+  
+  const scholarCode = inputValues[0];      // A: รหัสผู้รับทุน
+  const sequence = inputValues[1];         // B: ลำดับที่
+  const paymentDate = inputValues[2];      // C: วันที่เบิกจ่าย
+  const item = inputValues[3];             // D: รายการ
+  const amount = inputValues[4];           // E: จำนวน
+  const currency = inputValues[5];         // F: สกุลเงิน
+  const paymentMethod = inputValues[6];    // G: วิธีการจ่าย
+  const status = inputValues[7];           // H: สถานะ
+  const notes = inputValues[8];            // I: หมายเหตุ
+  
+  // Validate required fields
+  if (!scholarCode || !sequence || !paymentDate || !item || amount === '' || !status) {
+    SpreadsheetApp.getUi().alert('⚠️ Please fill all required fields (★)');
+    return;
+  }
+  
+  // Validate Scholar Code exists in 02_Register
+  const registerData = registerSheet.getRange('A2:A' + registerSheet.getLastRow()).getValues();
+  const scholarExists = registerData.some(row => row[0] === scholarCode);
+  if (!scholarExists) {
+    SpreadsheetApp.getUi().alert('⚠️ Scholar Code not found: ' + scholarCode);
+    return;
+  }
+  
+  // Validate Item exists in 01_Config
+  const configData = configSheet.getRange('B2:B' + configSheet.getLastRow()).getValues();
+  const itemExists = configData.some(row => row[0] === item);
+  if (!itemExists) {
+    SpreadsheetApp.getUi().alert('⚠️ Item not found: ' + item);
+    return;
+  }
+  
+  // Insert into 04_Master_Data
+  const masterLastRow = masterSheet.getLastRow();
+  const newRow = masterLastRow + 1;
+  
+  // Build row with formulas for auto-calculated columns
+  const newData = [
+    '', // A: TXN_ID (auto-calculated by formula)
+    scholarCode,
+    sequence,
+    paymentDate,
+    item,
+    amount,
+    currency || '',
+    paymentMethod || '',
+    status,
+    notes || ''
+  ];
+  
+  // Insert the row
+  masterSheet.insertRows(newRow, 1);
+  masterSheet.getRange(newRow, 1, 1, newData.length).setValues([newData]);
+  
+  // Clear input form
+  inputSheet.getRange('A2:I2').clearContent();
+  
+  SpreadsheetApp.getUi().alert('✓ Data inserted successfully! Row ' + newRow + ' in 04_Master_Data');
+}
+
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+  ui.createMenu('Submit')
+    .addItem('Submit Expense', 'validateAndInsertExpense')
+    .addToUi();
+}
+```
+
+3. Save the script (Ctrl+S or Cmd+S)
+4. Go back to the Google Sheet and refresh it
+5. You'll see a new "Submit" menu at the top of the sheet
+
+---
+
+## Step 4: Set Up Data Validation
+
+In Sheet 04_Input, set up dropdown menus:
+
+**Column A (Scholar Code):**
+1. Select range A2:A101
+2. Go to **Data > Data validation**
+3. Choose "List from a range"
+4. Range: `02_Register!A:A`
+5. Check "Show dropdown arrow"
+
+**Column D (Item):**
+1. Select range D2:D101
+2. Data validation > List from a range
+3. Range: `01_Config!B:B`
+
+**Column H (Status):**
+1. Select range H2:H101
+2. Data validation > List from a range
+3. Range: `01_Config!E:E` (สถานะการเบิกจ่าย column)
+
+**Column F (Currency):**
+1. Select range F2:F101
+2. Data validation > List from a range
+3. Range: `01_Config!F:F`
+
+---
+
+## Step 5: Format Columns
+
+**Column C (Payment Date):**
+- Format as Date: DD/MM/YYYY
+
+**Column E (Amount):**
+- Format as Number: #,##0.00
+
+**Headers:**
+- Fill color: #4472C4 (Blue)
+- Font color: White
+- Make bold
+
+---
+
+## How to Use
+
+1. **Enter expense data** in Sheet 04_Input:
+   - Fill in Scholar Code, Sequence, Payment Date, Item, Amount, Status
+   - Other fields are optional
+
+2. **Click "Submit" menu** > "Submit Expense"
+
+3. **Validation runs automatically**:
+   - Checks that Scholar Code exists
+   - Checks that Item exists
+   - Checks all required fields are filled
+
+4. **Data inserts into 04_Master_Data**:
+   - Auto-calculated fields (ปีทุนที่, ปีงบประมาณ, Category, etc.) populate via formulas
+   - TXN_ID auto-increments
+   - Form clears for next entry
+
+5. **Dashboard updates automatically**:
+   - All charts and summaries recalculate
+
+---
+
+## Reference Documents
+
+Your source data files are in the project:
+- `Scholarship - 01_Config.csv`
+- `Scholarship - 02_Register.csv`
+- `Scholarship - 03_Annual_Capital_Limit.csv`
+- `Scholarship - 04_Master_Data.csv`
+- `Scholarship - 05_Dashboard.csv`
+
+Copy data from these files to populate each sheet.
+
+---
+
+## Need Help?
+
+If you encounter issues:
+- Make sure sheet names match exactly (01_Config, 02_Register, etc.)
+- Verify formulas reference the correct sheet names
+- Check that Scholar Codes in 04_Input exactly match those in 02_Register
+- Check that Items in 04_Input exactly match those in 01_Config
